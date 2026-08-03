@@ -1,0 +1,15 @@
+# 빌드 산출물
+.next/
+out/
+build/
+node_modules/
+
+# 자동 생성 파일
+next-env.d.ts
+package-lock.json
+
+# 환경 변수
+.env*
+
+# 도구 데이터
+shrimp_data/

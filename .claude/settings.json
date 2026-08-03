@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "set -a; [ -f .env.local ] && . .env.local; set +a; if [ -n \"$SLACK_WEBHOOK_URL\" ]; then printf '%s' '{\"text\":\"✅ Claude Code 작업이 완료되었습니다.\"}' > /tmp/claude_slack_payload.json; curl -s -H 'Content-type: application/json' --data-binary @/tmp/claude_slack_payload.json \"$SLACK_WEBHOOK_URL\" > /dev/null 2>&1; rm -f /tmp/claude_slack_payload.json; fi; true",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
