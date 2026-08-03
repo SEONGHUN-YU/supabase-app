@@ -3,7 +3,7 @@ module.exports = {
 	semi: true,
 	singleQuote: true,
 	useTabs: true,
-	tabWidth: 4,
+	tabWidth: 2,
 	trailingComma: 'all',
 	printWidth: 80,
 	bracketSpacing: true,
