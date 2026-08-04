@@ -67,13 +67,17 @@
 
 - **Task 003: 카카오 로그인 도입** - 우선순위
   - 배치 근거: 초대 링크가 카카오톡으로 유통되는 것이 이 제품의 전제인데, 구글 OAuth는 인앱 브라우저(embedded WebView)를 `disallowed_useragent`로 차단한다. 카카오 로그인이 없으면 참여자 대다수가 로그인 자체를 못 해 제품이 동작하지 않으므로, 외부 콘솔 설정 리드타임까지 감안해 골격 단계에서 처리한다
-  - 카카오 개발자 콘솔 앱 등록 및 키 발급
-  - Supabase 대시보드에서 Kakao provider 활성화 + Redirect URL 등록
+  - 카카오 개발자 콘솔 앱 등록 및 키 발급 — **리드타임 없음(20~30분)**. 초안의 "반나절"은 근거가 없었고, 심사가 필요한 비즈 앱 전환은 `account_email` 동의항목을 쓸 때만 해당한다
+  - **동의항목은 `profile_nickname`·`profile_image`만.** `account_email`은 수집하지 않는다 — 비즈 앱 전환을 피하기 위한 결정이며, 대가로 구글·카카오 계정이 분리된다(`MVP-PLAN.md`의 N4). 로그인 페이지에 "가입할 때 쓴 수단으로 로그인해 주세요" 안내를 함께 넣는다
+  - Supabase 대시보드에서 Kakao provider 활성화 + Client ID/Secret 입력. **"Allow users without an email"을 반드시 켠다** — 빠뜨리면 이메일 없는 카카오 계정의 로그인이 실패한다
+  - 카카오 콘솔 Redirect URI에는 **Supabase 콜백(`https://<project-ref>.supabase.co/auth/v1/callback`)만** 넣는다. 최종 복귀 주소는 `redirectTo`로 넘어가고 그 값을 검사하는 쪽은 Supabase이므로, 터널·프로덕션 도메인은 **Supabase의 Redirect URLs 허용 목록**에 등록한다
   - **선행 리팩터링: divider를 그룹 레벨로 승격** — `components/google-auth-button.tsx:70-74`가 "Or continue with" 구분선을 컴포넌트 **내부**에 품고 있어, 카카오 버튼을 같은 구조로 복제하면 구분선이 두 번 렌더된다. `components/social-auth-buttons.tsx`로 divider를 올리고 각 버튼은 버튼만 렌더하도록 축소한다
   - `components/kakao-auth-button.tsx` 생성 (`signInWithOAuth({ provider: 'kakao' })`). 에러 표시는 `useState<string | null>` + `<p className="text-sm text-red-500">`, 리다이렉트 성공 경로에서 `setIsLoading(false)` 호출 금지 — 기존 구글 버튼의 관례를 그대로 따른다
   - `components/login-form.tsx`와 `components/sign-up-form.tsx` **양쪽 모두**에 삽입, 모바일 기준 카카오를 상단 배치
   - 기존 `app/auth/callback/route.ts` 재사용 — provider별 콜백 라우트를 새로 만들지 않음. 단 이 파일은 Task 001에서 `/protected` 폴백 때문에 이미 수정되며, 여기서 말하는 것은 **Task 003 범위에서 추가 수정하지 않는다**는 의미다
-  - 완료 조건: **실기기 안드로이드·iOS 카카오톡 인앱 브라우저**에서 로그인 완주 후 `next` 경로로 복귀. 데스크톱 브라우저 테스트로 대체 불가
+  - **실기기 검증 전제: HTTPS 공개 URL이 필요하다.** 카톡 인앱 브라우저는 `localhost`에 접근할 수 없는데 Vercel 배포는 Task 013이다. 이 순서 간극은 임시 터널로 메운다 — `cloudflared tunnel --url http://localhost:3000`으로 주소를 받아 Supabase Redirect URLs에 등록하고, 그 주소를 **카톡으로 자신에게 보내 인앱 브라우저에서 연다**. 외부 브라우저로 열면 검증이 성립하지 않는다
+  - 회귀 확인: divider 승격이 기존 구글 로그인을 깨지 않았는지 `/auth/login`·`/auth/sign-up` 양쪽에서 확인 (구분선이 한 번만 렌더되는지 포함)
+  - 완료 조건: **실기기 안드로이드·iOS 카카오톡 인앱 브라우저**에서 로그인 완주 후 `next` 경로로 복귀. 특히 `next=/e/<token>` 형태 — 이 제품의 실제 진입 경로다. 데스크톱 브라우저 테스트로 대체 불가
 
 ### Phase 2: UI/UX 완성 (더미 데이터 활용)
 
@@ -166,6 +170,7 @@
   - Cache Components 경계 점검 — 빌드 출력의 `◐` 표시로 초대 페이지 정적 셸이 프리렌더되는지 확인
   - 번들·이미지·폰트 점검 및 모바일 로딩 확인
   - Vercel 배포, 환경 변수 설정, 프로덕션 도메인 기준 OAuth Redirect URL 등록
+  - **Task 003에서 등록한 임시 터널 URL을 Supabase Redirect URLs 허용 목록에서 제거** — 남겨두면 만료된 터널 주소가 리디렉션 허용 목록에 계속 열려 있게 된다
   - 프로덕션에서 `x-forwarded-host` 기반 콜백 리디렉션 동작 확인
   - 실기기 최종 점검: 안드로이드·iOS 카카오톡 인앱 브라우저에서 링크 → 로그인 → 응답 → 정산 확인 완주
 

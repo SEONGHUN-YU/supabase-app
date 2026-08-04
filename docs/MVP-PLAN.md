@@ -354,8 +354,18 @@ end $$;
 기존 `components/google-auth-button.tsx`를 복제해 `provider: 'kakao'`로 바꾼다. 그 파일의 `next` prop이 `app/auth/callback/route.ts:33-37`의 오픈 리다이렉트 방어와 이미 연결되어 있으므로, **`next="/e/<token>"`만 넘기면 로그인 후 원래 초대 페이지로 복귀하는 흐름이 그대로 동작**한다. 신규 로직이 거의 없다.
 
 - Supabase 대시보드에 Kakao provider 활성화 + Redirect URL 등록
-- 카카오 개발자 콘솔에 앱 등록 (반나절 소요)
+- 카카오 개발자 콘솔에 앱 등록
 - 모바일에서는 카카오를 **위에**, 구글을 아래에 배치
+
+**소요 시간 — 리드타임은 없다.** 초안에 "반나절 소요"라고 적었으나 근거가 없었다. Supabase 문서 기준 설정은 6단계 콘솔 클릭 작업(앱 생성 → REST API 키 → Redirect URI → Client Secret → 동의항목 → Supabase에 키 입력)이고 20~30분이면 끝난다. 리드타임을 만드는 유일한 요소는 **비즈 앱 전환**인데, 이는 `account_email` 동의항목을 쓸 때만 필요하다:
+
+> the `account_email` consent item is only available for apps that are registered as "Biz App"
+
+**`account_email`을 수집하지 않기로 결정했다.** 동의항목은 `profile_nickname`·`profile_image`만 두고, Supabase Kakao provider의 **"Allow users without an email"** 을 켠다. 비즈 앱 전환이 불필요해지고 리드타임이 0이 된다.
+
+카카오 콘솔의 Redirect URI에는 **Supabase 콜백(`https://<project-ref>.supabase.co/auth/v1/callback`)만** 넣는다. 최종 복귀 주소는 `redirectTo`로 넘어가고 그 값을 검사하는 쪽은 Supabase이므로, 터널·프로덕션 도메인은 **Supabase의 Redirect URLs 허용 목록**에 등록한다.
+
+**대가 — N4 계정 분리 (§10 리스크 표 참조).**
 
 ### `cacheComponents`와 인증 (R7)
 
@@ -450,6 +460,8 @@ npx tsc --noEmit   # 타입만 빠르게 확인
 7. **보안**: 참여하지 않은 계정으로 `/e/<token>` 접근 시 명단이 안 보임 / 타인 `manage` 차단 / `note`가 일반 참여자에게 노출되지 않음
 8. **XSS**: `location_url`에 `javascript:alert(1)` 입력 시 거부 (R18)
 9. **실기기**: 안드로이드·iOS 카톡 인앱 브라우저에서 카카오 로그인 완주 (N1) — Playwright로 대체 불가
+   - **HTTPS 공개 URL이 선행 조건이다.** 카톡 인앱 브라우저는 `localhost`에 접근할 수 없다. 배포(Phase 4) 전에는 `cloudflared tunnel --url http://localhost:3000` 같은 임시 터널로 주소를 확보하고, 그 주소를 Supabase Redirect URLs 허용 목록에 등록한다
+   - 터널 URL을 **카톡으로 자신에게 보내 인앱 브라우저에서 연다.** 외부 브라우저로 열면 검증이 성립하지 않는다
 
 DB 상태는 `list_tables`, `execute_sql`(조회용)로 확인하고, 스키마 변경은 `apply_migration`으로만 수행한다. 배포 전 `get_advisors`로 RLS 누락 경고를 반드시 확인한다.
 
@@ -460,12 +472,29 @@ DB 상태는 `list_tables`, `execute_sql`(조회용)로 확인하고, 스키마 
 | **N1** | 카톡 인앱 브라우저 구글 OAuth 차단 | 카카오 로그인 도입. Phase 1 실기기 검증 필수 |
 | **N2** | 로그인 마찰로 신규 참여 이탈 | 이벤트 정보 선공개로 완화. 신규 전환율 20% 미만이면 결정 재검토 |
 | **N3** | R1 악화 — 카톡 투표와 마찰 격차 확대 | 정산이 유일한 방어선. 1차 편입 결정이 더 중요해짐 |
+| **N4** | **구글·카카오 계정 분리** — 같은 사람이 두 계정이 된다 | 아래 상세. MVP는 감수하고 계측만 한다 |
 | R13 | 정원 동시성 — 동시 응답 시 초과 가능 | **정원은 표시용으로 정의.** 하드 제한은 트랜잭션 비용 대비 실익 없음 |
 | R19 | Supabase 무료 플랜 **1주일 미사용 시 일시정지** | 검증 중 DB가 자고 있으면 첫인상을 잃고 지표도 오염된다. 검증 시작 전 유료 전환 또는 keep-alive cron 결정 |
 | R22 | 초기 사용자 확보 | 본인이 주최하는 실제 모임에 직접 사용 |
 | R23 | 낮은 모임 빈도 → 긴 검증 주기 | 최소 한 달 확보 |
 | — | 카카오 계정 미보유자 | 구글 병행으로 커버 |
 | — | 링크 무단 확산 | MVP는 감수. `show_names` 토글이 1차 완충. 실제 문제화되면 이벤트 잠금 추가 |
+
+### N4 — 구글·카카오 계정 분리
+
+`account_email`을 수집하지 않기로 한 결정의 직접적인 대가다. Supabase 문서:
+
+> Supabase Auth automatically links identities with **the same email address** to a single user.
+
+계정 통합 기준이 이메일이다. 이메일이 없으면 자동 연결이 일어나지 않는다.
+
+**증상**: 주최자가 데스크톱에서 구글로 로그인해 이벤트를 만든다. 나중에 단톡방에서 자기 링크를 열면 카톡 인앱 브라우저이므로 카카오로 로그인한다. 이 둘은 **별개 사용자**가 되어, 자기가 만든 이벤트가 대시보드에서 사라진다. 버그로 오인하기 쉽다.
+
+**MVP 대응**: 감수한다. 참여자는 링크로 진입해 한 기기·한 수단만 쓰므로 영향이 거의 없고, 주최자도 수단을 하나로 고정하면 문제가 없다. 다만 로그인 페이지에 *"가입할 때 쓴 수단으로 로그인해 주세요"* 안내를 둔다.
+
+**완화 경로 (이번 범위 아님)**: Supabase의 **manual linking**(`linkIdentity()`, beta)은 로그인 상태에서 이메일이 달라도 다른 provider를 연결할 수 있다. 계정 분리가 실제 문제로 드러나면 이걸로 푼다. 대시보드에서 활성화가 필요하다.
+
+**재검토 조건**: 주최자가 "만든 이벤트가 안 보인다"고 보고하면 즉시. 또는 `account_email` 수집(비즈 앱 전환)으로 되돌린다.
 
 ## 부록 — 리스크 대응 매핑
 
