@@ -35,7 +35,7 @@ interface GoogleAuthButtonProps extends React.ComponentPropsWithoutRef<'div'> {
 }
 
 export function GoogleAuthButton({
-	next = '/protected',
+	next = '/dashboard',
 	className,
 	...props
 }: GoogleAuthButtonProps) {

@@ -30,11 +30,11 @@ export async function GET(request: NextRequest) {
 
 	// 오픈 리다이렉트 방지: 앱 내부의 상대 경로만 허용한다.
 	// (`//evil.com`은 브라우저가 외부 절대 URL로 해석하므로 함께 막는다)
-	const requestedNext = searchParams.get('next') ?? '/protected';
+	const requestedNext = searchParams.get('next') ?? '/dashboard';
 	const next =
 		requestedNext.startsWith('/') && !requestedNext.startsWith('//')
 			? requestedNext
-			: '/protected';
+			: '/dashboard';
 
 	const supabase = await createClient();
 	const { error } = await supabase.auth.exchangeCodeForSession(code);

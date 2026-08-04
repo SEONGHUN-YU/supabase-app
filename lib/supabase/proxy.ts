@@ -51,7 +51,11 @@ export async function updateSession(request: NextRequest) {
 		request.nextUrl.pathname !== '/' &&
 		!user &&
 		!request.nextUrl.pathname.startsWith('/login') &&
-		!request.nextUrl.pathname.startsWith('/auth')
+		!request.nextUrl.pathname.startsWith('/auth') &&
+		// 초대 페이지와 개인정보 처리방침은 비로그인 열람을 허용한다.
+		// 응답 저장 시점에 페이지 안에서 로그인을 유도한다.
+		!request.nextUrl.pathname.startsWith('/e/') &&
+		!request.nextUrl.pathname.startsWith('/privacy')
 	) {
 		// no user, potentially respond by redirecting the user to the login page
 		const url = request.nextUrl.clone();

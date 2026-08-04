@@ -6,14 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Supabase Next.js 스타터를 기반으로 **모임 이벤트 관리 MVP**를 만드는 중입니다. 모임 주최자가 단톡방에서 손으로 처리하던 참석 집계·공지·회비 정산을 초대 링크 하나로 옮기는 제품입니다.
 
-**기획은 확정됐고 구현은 아직 시작하지 않았습니다.** 현재 코드는 스타터 상태 그대로이므로, 기능을 물어보면 코드가 아니라 아래 문서를 읽으세요.
+**기획은 확정됐고 구현은 Phase 1(라우트 골격)까지 끝났습니다.** 화면 안쪽은 아직 자리표시자이므로, 기능을 물어보면 코드가 아니라 아래 문서를 읽으세요.
 
-| 문서                   | 내용                                                    |
-| ---------------------- | ------------------------------------------------------- |
-| `docs/MVP-PLAN.md`     | 기획 원본. 스키마 DDL, RLS 정책, RPC 함수 설계, 리스크   |
-| `docs/PRD.md`          | 기능 명세 `F001`~`F015`, 화면 7개, 데이터 모델           |
-| `docs/ROADMAP.md`      | Phase 1~4, Task 001~013 분해                             |
-| `docs/LEAN-CANVAS.md`  | 린 캔버스 9블록, 지표 목표치                             |
+| 문서                  | 내용                                                   |
+| --------------------- | ------------------------------------------------------ |
+| `docs/MVP-PLAN.md`    | 기획 원본. 스키마 DDL, RLS 정책, RPC 함수 설계, 리스크 |
+| `docs/PRD.md`         | 기능 명세 `F001`~`F015`, 화면 7개, 데이터 모델         |
+| `docs/ROADMAP.md`     | Phase 1-4, Task 001-013 분해                           |
+| `docs/LEAN-CANVAS.md` | 린 캔버스 9블록, 지표 목표치                           |
 
 파생 관계는 `MVP-PLAN → PRD → ROADMAP·LEAN-CANVAS`입니다. 기능을 추가·삭제하면 `PRD.md` 기능표와 `ROADMAP.md` Task를 함께 고치세요.
 
@@ -43,7 +43,7 @@ npx tsc --noEmit      # 타입 체크 (전용 스크립트 없음)
 
 **1. 미들웨어 파일명이 `proxy.ts`입니다** (`middleware.ts` 아님). Next.js 16에서 이름이 바뀌었습니다. 루트 `proxy.ts`가 matcher를 정의하고 실제 로직은 `lib/supabase/proxy.ts`의 `updateSession()`에 있습니다. 빌드 출력에도 `ƒ Proxy (Middleware)`로 표시됩니다.
 
-**2. `cacheComponents: true`가 켜져 있습니다** (`next.config.ts`). Partial Prerendering이 활성화된 상태라, **동적 데이터를 읽는 컴포넌트는 반드시 `<Suspense>` 안에 있어야 합니다.** 안 그러면 빌드가 실패합니다. `app/instruments/page.tsx`(데이터 페칭 부분만 분리)와 `app/protected/layout.tsx`(`<AuthButton />` 감싸기)가 이 패턴의 예시입니다. 빌드 출력의 `◐`는 PPR이 적용된 라우트입니다.
+**2. `cacheComponents: true`가 켜져 있습니다** (`next.config.ts`). Partial Prerendering이 활성화된 상태라, **동적 데이터를 읽는 컴포넌트는 반드시 `<Suspense>` 안에 있어야 합니다.** 안 그러면 빌드가 실패합니다. `components/site-header.tsx`가 이 패턴의 예시입니다 — 세션을 읽는 `<AuthButton />` **하나만** `<Suspense>`로 감쌉니다. 경계는 최소 단위로 두세요. 헤더 전체를 감싸면 정적 셸 범위가 줄어 초대 페이지 캐시 이점이 사라집니다. 빌드 출력의 `◐`는 PPR이 적용된 라우트입니다.
 
 ### Supabase 클라이언트 — 컨텍스트별로 3개
 
@@ -61,7 +61,7 @@ npx tsc --noEmit      # 타입 체크 (전용 스크립트 없음)
 
 ### 인증 흐름
 
-라우트 보호는 페이지가 아니라 **proxy에서 일괄 처리**됩니다. `/`와 `/auth/*`를 제외한 모든 경로는 세션이 없으면 `/auth/login`으로 리다이렉트됩니다. 새 보호 페이지를 만들 때 별도 가드 코드는 필요 없습니다.
+라우트 보호는 페이지가 아니라 **proxy에서 일괄 처리**됩니다. `/`, `/auth/*`, `/e/*`, `/privacy`를 제외한 모든 경로는 세션이 없으면 `/auth/login`으로 리다이렉트됩니다. 새 보호 페이지를 만들 때 별도 가드 코드는 필요 없습니다.
 
 콜백 라우트가 두 개이고 **용도가 다릅니다**:
 
@@ -70,11 +70,24 @@ npx tsc --noEmit      # 타입 체크 (전용 스크립트 없음)
 
 인증 폼(`login-form`, `sign-up-form`)은 클라이언트 컴포넌트에서 직접 Supabase를 호출합니다. Server Action을 쓰지 않습니다.
 
-`lib/utils.ts`의 `hasEnvVars`는 환경 변수 미설정 시 UI를 대체 표시하는 스타터 잔재입니다. proxy도 이 값이 falsy면 인증 검사를 건너뜁니다.
+`lib/utils.ts`의 `hasEnvVars`는 환경 변수 미설정 시 UI를 대체 표시하는 스타터 잔재입니다. **주석에 "제거 가능"이라고 적혀 있지만 지우지 마세요.** `lib/supabase/proxy.ts`가 이 값이 falsy면 인증 검사를 통째로 건너뜁니다. 제거하면 환경 변수 미설정 시 모든 경로가 로그인으로 튕겨 개발이 막힙니다.
 
-### 스타터 잔재
+### 라우트 구조
 
-`app/instruments/`, `app/protected/`, `components/tutorial/`, `components/hero.tsx`, `components/deploy-button.tsx`, `components/next-logo.tsx`, `components/supabase-logo.tsx`는 Supabase 스타터의 데모 코드입니다. 여기에 신규 기능을 추가하지 말고, 참조가 필요하면 PPR 패턴 예시로만 읽으세요 (`docs/ROADMAP.md` Task 001에서 제거 예정).
+| 경로                  | 인증         | 용도              |
+| --------------------- | ------------ | ----------------- |
+| `/`                   | 불필요       | 랜딩              |
+| `/e/[token]`          | 불필요(열람) | 초대 페이지       |
+| `/privacy`            | 불필요       | 개인정보 처리방침 |
+| `/dashboard`          | 필요         | 주최/참여 허브    |
+| `/events/new`         | 필요         | 이벤트 생성       |
+| `/events/[id]/manage` | 주최자 본인  | 이벤트 관리       |
+
+비로그인 열람이 필요한 경로는 `lib/supabase/proxy.ts`의 인증 조건문에 예외를 추가해야 합니다. 그 조건문은 `getClaims()` 호출 **이후** 블록이라 예외를 늘려도 안전합니다.
+
+Phase 1에서 라우트 골격만 만들어 둔 상태라 `/dashboard` 이하는 자리표시자입니다. 헤더·푸터는 `app/layout.tsx`에 한 번만 배치되므로 **개별 페이지에서 다시 그리지 마세요.**
+
+스타터 데모 코드(`app/instruments/`, `app/protected/`, `components/tutorial/`, `components/hero.tsx` 등)는 Task 001에서 제거됐습니다.
 
 ### UI
 
