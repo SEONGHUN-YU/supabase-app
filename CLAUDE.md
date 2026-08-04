@@ -55,7 +55,11 @@ npx tsc --noEmit      # 타입 체크 (전용 스크립트 없음)
 
 ### UI
 
-shadcn/ui (new-york 스타일, neutral 베이스, lucide 아이콘), Tailwind CSS v3, `next-themes` 다크 모드. 모든 import는 `@/` 별칭을 사용합니다.
+shadcn/ui (new-york 스타일, neutral 베이스, lucide 아이콘), Tailwind CSS v4, `next-themes` 다크 모드. 모든 import는 `@/` 별칭을 사용합니다.
+
+**Tailwind는 v4이므로 `tailwind.config.ts`가 없습니다.** 테마 토큰은 `app/globals.css`의 `@theme` 블록에, 다크 모드는 같은 파일의 `@custom-variant dark (&:is(.dark *))`에 정의돼 있습니다. 색상을 추가하려면 config가 아니라 이 CSS를 고치세요. PostCSS는 `@tailwindcss/postcss` 하나만 쓰고 autoprefixer는 제거됐습니다(v4가 자동 처리).
+
+v3 문법을 쓰면 조용히 무시되므로 주의합니다 — `shadow` → `shadow-sm`, 기존 `shadow-sm` → `shadow-xs`, `outline-none` → `outline-hidden`, `bg-gradient-to-r` → `bg-linear-to-r`, `!leading-tight` → `leading-tight!`, `origin-[--var]` → `origin-(--var)`.
 
 ## 코드 스타일
 

@@ -15,8 +15,8 @@ const eslintConfig = defineConfig([
 			prettier,
 		},
 		rules: {
-			'prettier/prettier': ['error', { endOfLine: 'lf',},],
-			"@typescript-eslint/no-explicit-any": "warn",
+			'prettier/prettier': ['error', { endOfLine: 'lf' }],
+			'@typescript-eslint/no-explicit-any': 'warn',
 		},
 	},
 	// 새로 추가

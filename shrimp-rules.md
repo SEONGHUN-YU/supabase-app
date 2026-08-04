@@ -2,7 +2,8 @@
 
 ## 프로젝트 개요
 
-- **스택**: Next.js 16.2.12 (App Router) · React 19 · TypeScript strict · Supabase (`@supabase/ssr`) · Tailwind CSS v3 · shadcn/ui (new-york)
+- **스택**: Next.js 16.2.12 (App Router) · React 19 · TypeScript strict · Supabase (`@supabase/ssr`) · Tailwind CSS v4 · shadcn/ui (new-york)
+- **Tailwind v4에는 `tailwind.config.ts`가 없다.** 테마는 `app/globals.css`의 `@theme` 블록에 있으므로 config 파일을 만들거나 찾지 말 것.
 - **버전 의존 규칙이 존재하므로 Next.js 15 기준 지식을 적용하지 말 것.** 미들웨어 파일명과 캐시 동작이 다르다.
 - `.claude/agents/nextjs-supabase-expert.md`의 "Next.js 15.5.3", `npm run check-all`, `npm run typecheck` 기술은 **오류**다. 해당 문서를 근거로 명령을 실행하지 말 것.
 
