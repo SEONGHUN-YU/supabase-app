@@ -18,6 +18,7 @@
 | `app/auth/**`            | 인증 라우트             | proxy가 무조건 통과시키는 경로      |
 | `components/ui/**`       | shadcn 생성물           | 직접 수정 금지 (CLI 재생성 시 소실) |
 | `components/tutorial/**` | 스타터 잔재             | 신규 기능을 여기 추가 금지          |
+| `docs/**`                | 기획 문서 4종           | 아래 "문서 작업 표준" 준수          |
 
 ## 코드 표준
 
@@ -105,6 +106,39 @@ export default async function Page() {
 - `npx shadcn@latest add <name>`으로 추가한다. `components/ui/**`를 손으로 작성하지 말 것
 - 스타일 변형이 필요하면 `components/ui/**`를 고치지 말고 사용처에서 `cn()`으로 클래스를 덧씌운다
 
+## 문서 작업 표준 (`docs/`)
+
+### 파생 관계 — 상류를 고치면 하류를 함께 고친다
+
+```
+MVP-PLAN.md (기획 원본)
+  └→ PRD.md (기능 명세 F001~F015, 화면, 데이터 모델)
+       ├→ ROADMAP.md (Phase·Task 분해)
+       └→ LEAN-CANVAS.md (9블록 캔버스)
+```
+
+- 기능을 추가·삭제하면 `PRD.md`의 기능표와 `ROADMAP.md`의 Task를 **동시에** 고친다
+- 파일명은 **대문자 케밥 케이스**다 (`PRD.md`, `MVP-PLAN.md`, `ROADMAP.md`, `LEAN-CANVAS.md`). 신규 문서도 이 규칙을 따를 것
+- 기능 ID(`F001` 형식)는 재사용·재번호 금지. 기능을 제거하면 번호를 비우고 다음 번호를 이어 쓴다
+
+### `ROADMAP.md` Task 줄 형식 (변경 금지)
+
+`.claude/commands/docs/update-roadmap.md` 커맨드가 이 형식을 정규식으로 매칭한다. 형식을 바꾸면 완료 표시 동기화가 조용히 실패한다.
+
+```markdown
+- **Task 001: 제목** - 우선순위 <- O
+- **Task 005-1: 제목** <- O (하위 작업은 하이픈 번호)
+- **Task 001 - 제목** <- X (콜론 없음)
+- ### Task 001: 제목 <- X (볼드 리스트 항목이 아님)
+```
+
+- 완료 표시(`✅`)는 볼드 닫힘(`**`) **바로 뒤**에 붙인다
+- 완료 표시를 손으로 넣지 말고 `/docs:update-roadmap` 커맨드로 동기화한다. shrimp-task-manager의 작업 상태가 진실이다
+
+### `PRD.md`의 알려진 오류
+
+- `PRD.md` 기술 스택의 **"React Server Actions - 폼 제출 처리"는 이 저장소 규칙과 충돌한다.** 이 문구를 근거로 Server Action을 도입하지 말 것 (위 "인증 폼 / 클라이언트 상호작용" 절이 우선)
+
 ## 프레임워크 사용 표준
 
 ### Supabase 클라이언트 선택 (분기 기준)
@@ -128,6 +162,8 @@ proxy.ts                          → @/lib/supabase/proxy    → updateSession(
 
 - `next`의 메이저 버전을 변경하면 `eslint-config-next`를 **같은 메이저로 동시에** 변경할 것
 - 불일치 시 `eslint.config.mjs`의 `eslint-config-next/core-web-vitals` import가 해석되지 않아 ESLint가 `ERR_MODULE_NOT_FOUND`로 크래시한다 (린트 에러가 아니라 실행 자체가 실패)
+- **`package.json`의 `next`는 `"latest"`로 지정돼 있다.** `eslint-config-next`는 `^16.2.12`로 고정이므로, `npm install`만으로 Next.js 메이저가 올라가면 위 불일치가 저절로 발생한다. 의존성 설치 후 ESLint가 갑자기 크래시하면 이것을 먼저 의심할 것
+- `@supabase/ssr`, `@supabase/supabase-js`도 `"latest"`다. 인증이 갑자기 깨지면 버전 변동을 먼저 확인할 것
 
 ## 워크플로 표준
 
@@ -156,6 +192,8 @@ npm run build      # 4. 최종 확인 (cacheComponents 위반은 여기서만 �
 | OAuth provider 추가       | `components/login-form.tsx` + `components/sign-up-form.tsx`                |
 | proxy 예외 경로 추가      | `lib/supabase/proxy.ts` 조건문 + 필요 시 루트 `proxy.ts`의 matcher         |
 | 새 npm 스크립트           | `CLAUDE.md`의 명령어 표 + 본 문서의 워크플로 절                            |
+| 기능 추가·삭제            | `docs/PRD.md` 기능표 + `docs/ROADMAP.md` Task                              |
+| 지표·수익·비용 변경       | `docs/MVP-PLAN.md` + `docs/LEAN-CANVAS.md`                                 |
 
 - `env.d.ts`에는 `NEXT_PUBLIC_` 접두사가 없는 서버 전용 변수만 선언되어 있다. 이 관례를 유지할 것
 
@@ -189,6 +227,17 @@ DML(SELECT/INSERT/...)  → mcp__supabase__execute_sql
 - 변경 전 `mcp__supabase__list_tables`로 현재 구조를 확인할 것
 - DDL을 `execute_sql`로 실행하지 말 것
 
+### 파일명 대소문자만 바꾸는 요청
+
+`git config core.ignorecase`가 `true`다. 한 번에 `git mv`하면 대상이 이미 존재한다며 실패하거나, 탐색기에서 바꾸면 git이 변경을 인식하지 못한다. **반드시 중간 이름을 거쳐 2단계로 실행할 것.**
+
+```bash
+git mv docs/old-name.md docs/__tmp.md
+git mv docs/__tmp.md docs/OLD-NAME.md
+```
+
+- `core.ignorecase`를 `false`로 바꾸지 말 것 (Windows에서 대소문자만 다른 파일이 중복 인식됨)
+
 ### 파괴적 git 작업 요청
 
 - `reset --hard`, `stash drop`, `clean` 실행 전 대상 범위를 명시하고, 사용자 작업분이 섞여 있으면 그 사실을 먼저 알릴 것
@@ -205,3 +254,6 @@ DML(SELECT/INSERT/...)  → mcp__supabase__execute_sql
 - ❌ `npm run check-all` / `npm run typecheck` 실행
 - ❌ 스페이스 들여쓰기 · 큰따옴표 문자열
 - ❌ `.env.local` 값을 커밋하거나 문서·로그에 출력
+- ❌ `docs/PRD.md`의 "React Server Actions" 기재를 근거로 Server Action 도입
+- ❌ `docs/ROADMAP.md`의 `- **Task XXX: 제목**` 줄 형식 변경
+- ❌ 한 번의 `git mv`로 파일명 대소문자만 변경

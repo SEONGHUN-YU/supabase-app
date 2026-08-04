@@ -2,6 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 이 저장소가 무엇인지
+
+Supabase Next.js 스타터를 기반으로 **모임 이벤트 관리 MVP**를 만드는 중입니다. 모임 주최자가 단톡방에서 손으로 처리하던 참석 집계·공지·회비 정산을 초대 링크 하나로 옮기는 제품입니다.
+
+**기획은 확정됐고 구현은 아직 시작하지 않았습니다.** 현재 코드는 스타터 상태 그대로이므로, 기능을 물어보면 코드가 아니라 아래 문서를 읽으세요.
+
+| 문서                   | 내용                                                    |
+| ---------------------- | ------------------------------------------------------- |
+| `docs/MVP-PLAN.md`     | 기획 원본. 스키마 DDL, RLS 정책, RPC 함수 설계, 리스크   |
+| `docs/PRD.md`          | 기능 명세 `F001`~`F015`, 화면 7개, 데이터 모델           |
+| `docs/ROADMAP.md`      | Phase 1~4, Task 001~013 분해                             |
+| `docs/LEAN-CANVAS.md`  | 린 캔버스 9블록, 지표 목표치                             |
+
+파생 관계는 `MVP-PLAN → PRD → ROADMAP·LEAN-CANVAS`입니다. 기능을 추가·삭제하면 `PRD.md` 기능표와 `ROADMAP.md` Task를 함께 고치세요.
+
+**`shrimp-rules.md`가 별도로 있습니다.** 이 파일보다 더 세밀한 금지 사항과 의사결정 트리가 들어 있으므로, 코드를 고치기 전에 함께 읽으세요.
+
+`/docs:update-roadmap` 슬래시 커맨드는 shrimp-task-manager의 완료 작업을 `docs/ROADMAP.md`에 ✅로 동기화합니다. ROADMAP의 `- **Task 001: 제목**` 줄 형식에 의존하므로 이 형식을 바꾸지 마세요.
+
 ## 명령어
 
 ```bash
@@ -53,6 +72,10 @@ npx tsc --noEmit      # 타입 체크 (전용 스크립트 없음)
 
 `lib/utils.ts`의 `hasEnvVars`는 환경 변수 미설정 시 UI를 대체 표시하는 스타터 잔재입니다. proxy도 이 값이 falsy면 인증 검사를 건너뜁니다.
 
+### 스타터 잔재
+
+`app/instruments/`, `app/protected/`, `components/tutorial/`, `components/hero.tsx`, `components/deploy-button.tsx`, `components/next-logo.tsx`, `components/supabase-logo.tsx`는 Supabase 스타터의 데모 코드입니다. 여기에 신규 기능을 추가하지 말고, 참조가 필요하면 PPR 패턴 예시로만 읽으세요 (`docs/ROADMAP.md` Task 001에서 제거 예정).
+
 ### UI
 
 shadcn/ui (new-york 스타일, neutral 베이스, lucide 아이콘), Tailwind CSS v4, `next-themes` 다크 모드. 모든 import는 `@/` 별칭을 사용합니다.
@@ -69,6 +92,8 @@ Prettier: **탭 들여쓰기(폭 2)**, 작은따옴표, 세미콜론, `arrowPare
 
 **`eslint-config-next`의 메이저 버전은 `next`와 반드시 일치해야 합니다.** 어긋나면 `eslint.config.mjs`가 import하는 flat config 서브패스(`eslint-config-next/core-web-vitals` 등)가 존재하지 않아 ESLint가 설정 로드 단계에서 크래시합니다 — 린트 결과가 아니라 `ERR_MODULE_NOT_FOUND`가 뜹니다. Next.js를 올릴 때 함께 올리세요.
 
+`package.json`에서 **`next`, `@supabase/ssr`, `@supabase/supabase-js`가 `"latest"`로 지정**되어 있습니다. `eslint-config-next`는 `^16.2.12`로 고정이므로, `npm install`만 돌려도 Next.js 메이저가 올라가 위 크래시가 저절로 발생할 수 있습니다. 의존성 설치 직후 ESLint나 인증이 갑자기 깨지면 `package-lock.json` 변경분을 먼저 확인하세요.
+
 ## 알려진 이슈
 
 `components/theme-switcher.tsx:21` — `react-hooks/set-state-in-effect` 에러 1건. next-themes의 하이드레이션 가드 패턴을 React 19의 새 훅 규칙이 잡는 것으로, 실제 버그는 아닙니다. 미해결 상태이므로 lint 결과에 항상 나타납니다.
@@ -77,8 +102,12 @@ Prettier: **탭 들여쓰기(폭 2)**, 작은따옴표, 세미콜론, `arrowPare
 
 `.env.local`에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`가 필요합니다. 후자는 신규 publishable 키와 레거시 anon 키 둘 다 호환됩니다.
 
+서버 전용 변수(`SLACK_WEBHOOK_URL`, `CONTEXT7_API_KEY`)는 `env.d.ts`에 타입 선언되어 있습니다. **`NEXT_PUBLIC_` 접두사가 없는 변수만 여기에 선언하는 관례**이며, 변수를 추가하면 `.env.local` · `.env.example` · `env.d.ts` 세 곳을 함께 고칩니다.
+
 ## MCP 서버
 
 `.mcp.json`에 `supabase`, `context7`, `playwright`, `sequential-thinking`, `shrimp-task-manager`가 설정되어 있습니다.
 
 DB 작업 시: DDL은 `execute_sql`이 아니라 **`apply_migration`** 을 사용하고, 스키마 변경 전에는 `list_tables`로 현재 구조를 먼저 확인하세요.
+
+`.claude/settings.json`에 **Stop 훅**이 걸려 있습니다. 작업이 끝날 때마다 `.env.local`의 `SLACK_WEBHOOK_URL`로 완료 알림을 보냅니다. 해당 변수가 없으면 조용히 넘어갑니다.
