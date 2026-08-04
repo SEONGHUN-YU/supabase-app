@@ -1,0 +1,226 @@
+{
+  "tasks": [
+    {
+      "id": "800caac0-12b6-419f-a7bd-a4657945954b",
+      "name": "Task 001: 라우트 구조 및 공통 레이아웃 구성",
+      "description": "App Router 라우트 골격 5개를 빈 껍데기로 생성하고, 스타터 잔재를 제거하며, 두 곳에 중복된 nav·푸터를 공통 컴포넌트로 추출해 app/layout.tsx에 배치한다. proxy 인증 예외에 /e/ 와 /privacy 를 추가해 초대 페이지의 비로그인 열람을 연다.\n\napp/protected/ 제거가 확정됐고, 이 경로를 가리키는 참조가 5개 파일 6곳이다. 제거와 재지정을 분리하면 중간 상태에서 로그인 후 404가 발생하므로 한 작업으로 묶는다.\n\n수락 기준: npm run build 통과, 로그아웃 상태에서 /e/test 접속 시 리디렉션 없음, /dashboard 접속 시 /auth/login으로 리디렉션됨.",
+      "notes": "hasEnvVars를 제거하지 말 것. lib/utils.ts:8 주석이 튜토리얼 잔재라고 하지만 lib/supabase/proxy.ts:12-14가 인증 조기 반환에 쓴다. 제거하면 환경 변수 미설정 시 모든 경로가 로그인으로 튕겨 개발이 막힌다.\n\nUI 문자열이 현재 전부 영어다. 신규 화면은 한국어로 쓰되 기존 영어 문자열은 이 작업에서 손대는 파일 범위에서만 함께 바꾼다. 전면 번역은 Phase 2로 미룬다.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-08-04T01:28:00.675Z",
+      "updatedAt": "2026-08-04T01:37:36.688Z",
+      "relatedFiles": [
+        {
+          "path": "lib/supabase/proxy.ts",
+          "type": "TO_MODIFY",
+          "description": "인증 예외 2줄 추가. getClaims 이후 블록이라 안전",
+          "lineStart": 50,
+          "lineEnd": 60
+        },
+        {
+          "path": "app/layout.tsx",
+          "type": "TO_MODIFY",
+          "description": "lang ko, metadata 제품화, SiteHeader/SiteFooter 배치",
+          "lineStart": 1,
+          "lineEnd": 41
+        },
+        {
+          "path": "app/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "nav·푸터 원본. 랜딩 자리표시자로 축소",
+          "lineStart": 16,
+          "lineEnd": 54
+        },
+        {
+          "path": "app/protected/layout.tsx",
+          "type": "TO_MODIFY",
+          "description": "nav·푸터 중복본. 디렉터리째 제거",
+          "lineStart": 17,
+          "lineEnd": 51
+        },
+        {
+          "path": "components/google-auth-button.tsx",
+          "type": "TO_MODIFY",
+          "description": "next 기본값 /protected를 /dashboard로",
+          "lineStart": 38,
+          "lineEnd": 38
+        },
+        {
+          "path": "components/login-form.tsx",
+          "type": "TO_MODIFY",
+          "description": "router.push /protected를 /dashboard로",
+          "lineStart": 43,
+          "lineEnd": 43
+        },
+        {
+          "path": "components/sign-up-form.tsx",
+          "type": "TO_MODIFY",
+          "description": "emailRedirectTo /protected를 /dashboard로",
+          "lineStart": 48,
+          "lineEnd": 48
+        },
+        {
+          "path": "components/update-password-form.tsx",
+          "type": "TO_MODIFY",
+          "description": "router.push /protected를 /dashboard로",
+          "lineStart": 37,
+          "lineEnd": 37
+        },
+        {
+          "path": "app/auth/callback/route.ts",
+          "type": "TO_MODIFY",
+          "description": "next 폴백 2곳을 /dashboard로",
+          "lineStart": 33,
+          "lineEnd": 37
+        },
+        {
+          "path": "components/auth-button.tsx",
+          "type": "REFERENCE",
+          "description": "async 서버 컴포넌트. 재사용하되 표시 문자열만 제품화",
+          "lineStart": 1,
+          "lineEnd": 29
+        },
+        {
+          "path": "components/site-header.tsx",
+          "type": "CREATE",
+          "description": "nav 추출본. Suspense는 AuthButton만 감싼다"
+        },
+        {
+          "path": "components/site-footer.tsx",
+          "type": "CREATE",
+          "description": "푸터 추출본"
+        },
+        {
+          "path": "lib/utils.ts",
+          "type": "REFERENCE",
+          "description": "hasEnvVars 정의. 제거 금지",
+          "lineStart": 8,
+          "lineEnd": 11
+        },
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "Task 001 정의 원본",
+          "lineStart": 45,
+          "lineEnd": 57
+        }
+      ],
+      "implementationGuide": "1. 스타터 잔재 제거: app/instruments/, app/protected/, components/tutorial/, components/hero.tsx, components/deploy-button.tsx, components/next-logo.tsx, components/supabase-logo.tsx\n\n2. 같은 단계에서 /protected 참조 6곳을 /dashboard로 재지정:\ncomponents/google-auth-button.tsx:38   next 기본값\ncomponents/login-form.tsx:43           router.push\ncomponents/sign-up-form.tsx:48         emailRedirectTo\ncomponents/update-password-form.tsx:37 router.push\napp/auth/callback/route.ts:33          next 폴백\napp/auth/callback/route.ts:37          next 폴백\n\n3. nav·푸터 추출 (신규 작성이 아니라 중복 제거):\n// components/site-header.tsx\nSiteHeader() =>\n  <nav>\n    <Link href='/'>제품명</Link>\n    {!hasEnvVars ? <EnvVarWarning/> : <Suspense><AuthButton/></Suspense>}\n  </nav>\n// Suspense는 AuthButton 하나만 최소 단위로 감싼다.\n// SiteHeader 전체를 감싸면 정적 셸 범위가 좁아져\n// Task 006(초대 페이지 캐시)의 이점을 미리 깎아먹는다.\n// app/page.tsx:27-29가 이미 올바른 형태다.\n// components/site-footer.tsx — ThemeSwitcher 포함\n\n4. app/layout.tsx 제품화 및 배치:\n<html lang='ko'>   // 28행 'en'에서 교체\nmetadata.title    // 12행 스타터 문구를 제품명으로\nmetadataBase의 VERCEL_URL 분기(6-8행)는 유지\n<ThemeProvider><SiteHeader/>{children}<SiteFooter/></ThemeProvider>\n\n5. app/page.tsx를 랜딩 자리표시자로 축소 (nav·푸터는 layout으로 이관)\n\n6. 라우트 5개 생성 — 제목과 자리표시자만, 데이터 페칭 없음:\napp/dashboard/page.tsx, app/events/new/page.tsx,\napp/events/[id]/manage/page.tsx, app/e/[token]/page.tsx, app/privacy/page.tsx\n\n7. lib/supabase/proxy.ts:50-55 조건에 2줄 추가:\n&& !startsWith('/e/') && !startsWith('/privacy')\n// 이 블록은 getClaims() 호출(47행) 이후라 안전하다.\n// 새 NextResponse를 만들지 않으므로 쿠키 복사도 불필요하다.\n\n8. CLAUDE.md의 PPR 참조 경로 갱신 — app/instruments/page.tsx와 app/protected/layout.tsx가 사라지므로 app/layout.tsx의 Suspense 예시로 교체",
+      "verificationCriteria": "1. npm run build 통과. cacheComponents 위반 없음\n2. Playwright MCP 시크릿 컨텍스트로 /e/test 접속 시 /auth/login으로 리디렉션되지 않음\n3. 같은 컨텍스트로 /dashboard 접속 시 /auth/login으로 리디렉션됨\n4. grep -rn '/protected' 결과가 0건\n5. 이메일 로그인과 구글 로그인 모두 성공 후 /dashboard 도달\n6. npm run lint 결과가 기존 미해결 1건(components/theme-switcher.tsx:21)만 남음",
+      "analysisResult": "Phase 1 애플리케이션 골격 구축. docs/ROADMAP.md를 코드베이스 실측 결과로 갱신한 뒤 작업 정의를 동기화한 버전이다.\n\n확정 결정: app/protected/를 제거하고 /protected 참조 6곳을 전부 /dashboard로 재지정한다.\n\n실측 사실:\n- /protected 참조는 5개 파일 6곳이다: google-auth-button.tsx:38, login-form.tsx:43, sign-up-form.tsx:48, update-password-form.tsx:37, app/auth/callback/route.ts:33 및 37\n- lib/supabase/proxy.ts:50-55 조건문은 getClaims() 호출(47행) 이후 블록이라 예외 경로 추가가 안전하다\n- app/page.tsx:16-54와 app/protected/layout.tsx:17-51이 nav·푸터를 거의 동일하게 복제한다\n- components/auth-button.tsx는 getClaims()를 호출하는 async 서버 컴포넌트다\n- app/layout.tsx가 lang=\"en\"과 스타터 metadata 상태다\n- google-auth-button.tsx:70-74가 divider를 컴포넌트 내부에 품고 있다\n- lib/utils.ts의 hasEnvVars는 proxy.ts:12-14가 인증 조기 반환에 쓰므로 제거 금지다\n- zod 미설치, types/ 디렉터리 부재\n- components/ui/label.tsx는 이미 존재한다\n\n저장소 제약: Next.js 16 App Router, 미들웨어는 proxy.ts, cacheComponents:true, getClaims() 사용, Supabase 클라이언트를 모듈 최상위에 담지 않음, Server Action 신규 도입 금지, Tailwind v4, components/ui/**는 shadcn CLI 생성물, Prettier 탭 들여쓰기 폭2 작은따옴표, import는 @/ 별칭, 주석과 문서는 한국어"
+    },
+    {
+      "id": "1abc718c-641d-4f2d-8dc5-5f3a98a6b184",
+      "name": "Task 002: 타입 정의 및 데이터 모델 설계",
+      "description": "PRD 데이터 모델 6개 테이블의 TypeScript 인터페이스와 Zod 검증 스키마를 정의하고, KST 고정 날짜 포맷터와 Phase 2용 더미 데이터 팩토리를 만든다. 마이그레이션 실행은 Task 007로 미루며 이 작업은 타입 계약만 확정한다.\n\nzod가 설치되어 있지 않고 types/ 디렉터리도 없다. 둘 다 신규 도입이다.\n\nTask 001과 파일이 겹치지 않아 병렬 진행이 가능하다.\n\n수락 기준: npx tsc --noEmit 통과.",
+      "notes": "이 작업은 DB에 아무것도 만들지 않는다. apply_migration을 호출하지 말 것. 설계 결과는 Task 007의 입력이다.\n\nTask 007에서 generate_typescript_types로 DB 타입을 생성한 뒤 이 작업의 수기 타입과 정합성을 대조하게 된다.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-08-04T01:28:00.675Z",
+      "updatedAt": "2026-08-04T01:37:36.688Z",
+      "relatedFiles": [
+        {
+          "path": "docs/MVP-PLAN.md",
+          "type": "REFERENCE",
+          "description": "6개 테이블 DDL 원본. check 제약 수치의 근거"
+        },
+        {
+          "path": "docs/PRD.md",
+          "type": "REFERENCE",
+          "description": "데이터 모델 필드 설명",
+          "lineStart": 213,
+          "lineEnd": 269
+        },
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "Task 002 정의 원본",
+          "lineStart": 59,
+          "lineEnd": 66
+        },
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "zod 의존성 추가"
+        },
+        {
+          "path": "lib/date.ts",
+          "type": "CREATE",
+          "description": "Asia/Seoul 고정 포맷터"
+        },
+        {
+          "path": "lib/utils.ts",
+          "type": "REFERENCE",
+          "description": "기존 lib 파일의 스타일 참고",
+          "lineStart": 1,
+          "lineEnd": 11
+        }
+      ],
+      "implementationGuide": "1. npm install zod\n// npm ls zod 결과가 empty로 확인됨. 이 단계가 빠지면 첫 줄부터 컴파일되지 않는다\n\n2. types/ 디렉터리 신규 생성 (현재 없음. lib/에는 supabase/와 utils.ts뿐).\n6개 테이블 인터페이스: events, participants, announcements, settlements, settlement_shares, event_views\n// event status: 'open' | 'closed' | 'cancelled'\n// participant status: 'going' | 'not_going' | 'maybe'\n// 리터럴 유니온으로 오타를 컴파일 타임에 잡는다\n\n3. Zod 스키마 3종 — 제약을 docs/MVP-PLAN.md의 DDL check와 일치시킨다:\neventCreateSchema  // 제목, 일시, 장소, 지도 링크, 정원, 응답 마감\nrsvpSchema         // status, guest_count 0-10, note 200자\nsettlementSchema   // total_amount >= 0, 계좌 정보\n// display_name 1-20자\n// 어긋나면 클라이언트는 통과시키고 DB가 거부하는 상태가 된다\n\n4. lib/date.ts KST 포맷터:\nformatKST(date, style) =>\n  Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', ... }).format(date)\n// 서버는 UTC, 사용자는 KST다. 각자 포맷하면 하이드레이션 불일치가 나거나 9시간 어긋난다.\n// 서버·클라이언트가 같은 함수를 통과하도록 강제해 출력 문자열을 일치시킨다.\n// 모든 날짜 출력은 예외 없이 이 함수를 거친다\n\n5. 더미 데이터 팩토리 — Phase 2 UI가 DB 없이 렌더되도록 타입 정합 데이터 생성",
+      "verificationCriteria": "1. npx tsc --noEmit 통과\n2. npm run lint 신규 에러 없음\n3. formatKST가 서버와 클라이언트에서 동일 문자열 반환 — 임시 페이지에서 SSR 출력과 하이드레이션 후 출력을 비교하고 콘솔에 하이드레이션 경고가 없어야 한다\n4. Zod 경계값: guest_count 11 거부, note 201자 거부, display_name 21자 거부",
+      "analysisResult": "Phase 1 애플리케이션 골격 구축. docs/ROADMAP.md를 코드베이스 실측 결과로 갱신한 뒤 작업 정의를 동기화한 버전이다.\n\n확정 결정: app/protected/를 제거하고 /protected 참조 6곳을 전부 /dashboard로 재지정한다.\n\n실측 사실:\n- /protected 참조는 5개 파일 6곳이다: google-auth-button.tsx:38, login-form.tsx:43, sign-up-form.tsx:48, update-password-form.tsx:37, app/auth/callback/route.ts:33 및 37\n- lib/supabase/proxy.ts:50-55 조건문은 getClaims() 호출(47행) 이후 블록이라 예외 경로 추가가 안전하다\n- app/page.tsx:16-54와 app/protected/layout.tsx:17-51이 nav·푸터를 거의 동일하게 복제한다\n- components/auth-button.tsx는 getClaims()를 호출하는 async 서버 컴포넌트다\n- app/layout.tsx가 lang=\"en\"과 스타터 metadata 상태다\n- google-auth-button.tsx:70-74가 divider를 컴포넌트 내부에 품고 있다\n- lib/utils.ts의 hasEnvVars는 proxy.ts:12-14가 인증 조기 반환에 쓰므로 제거 금지다\n- zod 미설치, types/ 디렉터리 부재\n- components/ui/label.tsx는 이미 존재한다\n\n저장소 제약: Next.js 16 App Router, 미들웨어는 proxy.ts, cacheComponents:true, getClaims() 사용, Supabase 클라이언트를 모듈 최상위에 담지 않음, Server Action 신규 도입 금지, Tailwind v4, components/ui/**는 shadcn CLI 생성물, Prettier 탭 들여쓰기 폭2 작은따옴표, import는 @/ 별칭, 주석과 문서는 한국어"
+    },
+    {
+      "id": "37fea9e6-2e91-4653-9f52-b3cb6328e58f",
+      "name": "Task 003: 카카오 로그인 도입",
+      "description": "카카오 로그인을 추가한다. 구글 OAuth는 embedded WebView를 disallowed_useragent로 차단하는데 카카오톡 인앱 브라우저가 정확히 그 WebView다. 초대 링크가 카카오톡으로 유통되는 것이 이 제품의 전제이므로, 카카오 로그인이 없으면 참여자 대다수가 로그인 자체를 못 해 제품이 동작하지 않는다.\n\n외부 콘솔 설정이 선행되어야 하고 반나절 리드타임이 있다. 최종 검증은 /dashboard 라우트가 존재해야 하므로 Task 001 이후다.\n\n수락 기준: 실기기 안드로이드·iOS 카카오톡 인앱 브라우저에서 로그인 완주 후 next 경로로 복귀.",
+      "notes": "provider별 콜백 라우트를 새로 만들지 말 것.\n\n완료 조건 검증은 Playwright MCP로 대체할 수 없다. 카카오톡 인앱 브라우저는 실기기에서만 재현되며, 데스크톱 테스트는 이 작업이 해결하려는 문제 자체를 검증하지 못한다. 이 항목만 사람 검증으로 남긴다.\n\n카카오 계정이 없는 사용자를 위해 구글 로그인은 유지한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "800caac0-12b6-419f-a7bd-a4657945954b"
+        }
+      ],
+      "createdAt": "2026-08-04T01:28:00.675Z",
+      "updatedAt": "2026-08-04T01:37:36.688Z",
+      "relatedFiles": [
+        {
+          "path": "components/google-auth-button.tsx",
+          "type": "TO_MODIFY",
+          "description": "divider를 그룹으로 승격하며 버튼만 남기도록 축소. 복제 원본",
+          "lineStart": 37,
+          "lineEnd": 88
+        },
+        {
+          "path": "components/kakao-auth-button.tsx",
+          "type": "CREATE",
+          "description": "provider kakao. 구글 버튼 구조를 따른다"
+        },
+        {
+          "path": "components/social-auth-buttons.tsx",
+          "type": "CREATE",
+          "description": "divider + 카카오·구글 버튼 그룹"
+        },
+        {
+          "path": "components/login-form.tsx",
+          "type": "TO_MODIFY",
+          "description": "SocialAuthButtons 삽입",
+          "lineStart": 96,
+          "lineEnd": 96
+        },
+        {
+          "path": "components/sign-up-form.tsx",
+          "type": "TO_MODIFY",
+          "description": "SocialAuthButtons 삽입. 양쪽 모두 필수"
+        },
+        {
+          "path": "app/auth/callback/route.ts",
+          "type": "REFERENCE",
+          "description": "이 작업에서는 수정하지 않는다. provider 무관 재사용",
+          "lineStart": 30,
+          "lineEnd": 40
+        },
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "Task 003 정의 원본",
+          "lineStart": 68,
+          "lineEnd": 76
+        }
+      ],
+      "implementationGuide": "1. 외부 설정 (사람이 브라우저에서 수행, 반나절 리드타임):\n- 카카오 개발자 콘솔 앱 등록, REST API 키 발급, 동의 항목 설정\n- Supabase 대시보드 Kakao provider 활성화, 키 입력, Redirect URL 등록\n\n2. 선행 리팩터링 — divider 승격:\n// components/google-auth-button.tsx:70-74가 'Or continue with' 구분선을\n// 컴포넌트 내부에 품고 있다. 카카오 버튼을 같은 구조로 복제하면 두 번 렌더된다.\n// components/social-auth-buttons.tsx\nSocialAuthButtons({ next }) =>\n  <Divider/>                       // 그룹 레벨로 승격\n  <KakaoAuthButton next={next}/>   // 모바일 우선: 위\n  <GoogleAuthButton next={next}/>\n// 각 버튼 컴포넌트는 버튼만 렌더하도록 축소\n\n3. components/kakao-auth-button.tsx 생성:\nsignInWithOAuth({ provider: 'kakao', options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` } })\n// google-auth-button.tsx의 관례를 그대로 따른다:\n// - 에러는 useState<string|null> + <p className='text-sm text-red-500'>\n// - 리다이렉트 성공 경로에서 setIsLoading(false) 호출 금지 (버튼 깜빡임 방지)\n// - 주석은 한국어\n\n4. components/login-form.tsx와 components/sign-up-form.tsx 양쪽 모두에 SocialAuthButtons 삽입\n\n5. app/auth/callback/route.ts는 이 작업에서 수정하지 않는다. provider 무관하게 exchangeCodeForSession()을 호출하고 next 파라미터의 오픈 리다이렉트를 이미 방어한다. 단 Task 001에서 /protected 폴백 때문에 이미 수정된 상태다",
+      "verificationCriteria": "1. npm run build 통과\n2. 데스크톱 브라우저에서 카카오 버튼 클릭 시 카카오 인증 화면으로 이동\n3. 인증 후 /auth/callback을 거쳐 next 경로로 복귀\n4. login-form과 sign-up-form 양쪽에 버튼이 노출되고 divider가 한 번만 렌더됨\n5. 최종 조건 — 실기기 안드로이드와 iOS 카카오톡 인앱 브라우저에서 링크 진입 후 로그인 완주. 이 항목이 통과하지 않으면 미완료로 간주한다",
+      "analysisResult": "Phase 1 애플리케이션 골격 구축. docs/ROADMAP.md를 코드베이스 실측 결과로 갱신한 뒤 작업 정의를 동기화한 버전이다.\n\n확정 결정: app/protected/를 제거하고 /protected 참조 6곳을 전부 /dashboard로 재지정한다.\n\n실측 사실:\n- /protected 참조는 5개 파일 6곳이다: google-auth-button.tsx:38, login-form.tsx:43, sign-up-form.tsx:48, update-password-form.tsx:37, app/auth/callback/route.ts:33 및 37\n- lib/supabase/proxy.ts:50-55 조건문은 getClaims() 호출(47행) 이후 블록이라 예외 경로 추가가 안전하다\n- app/page.tsx:16-54와 app/protected/layout.tsx:17-51이 nav·푸터를 거의 동일하게 복제한다\n- components/auth-button.tsx는 getClaims()를 호출하는 async 서버 컴포넌트다\n- app/layout.tsx가 lang=\"en\"과 스타터 metadata 상태다\n- google-auth-button.tsx:70-74가 divider를 컴포넌트 내부에 품고 있다\n- lib/utils.ts의 hasEnvVars는 proxy.ts:12-14가 인증 조기 반환에 쓰므로 제거 금지다\n- zod 미설치, types/ 디렉터리 부재\n- components/ui/label.tsx는 이미 존재한다\n\n저장소 제약: Next.js 16 App Router, 미들웨어는 proxy.ts, cacheComponents:true, getClaims() 사용, Supabase 클라이언트를 모듈 최상위에 담지 않음, Server Action 신규 도입 금지, Tailwind v4, components/ui/**는 shadcn CLI 생성물, Prettier 탭 들여쓰기 폭2 작은따옴표, import는 @/ 별칭, 주석과 문서는 한국어"
+    }
+  ]
+}

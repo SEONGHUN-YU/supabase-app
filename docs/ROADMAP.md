@@ -45,15 +45,22 @@
 - **Task 001: 라우트 구조 및 공통 레이아웃 구성** - 우선순위
   - App Router 라우트 골격 생성: `/dashboard`, `/events/new`, `/events/[id]/manage`, `/e/[token]`, `/privacy`
   - 각 페이지를 제목과 자리표시자만 있는 빈 껍데기로 생성 (기능 구현 제외)
-  - `lib/supabase/proxy.ts` 인증 예외에 `/e/`, `/privacy` 추가 — 초대 페이지는 비로그인 열람이 전제
-  - 스타터 잔재 제거: `app/instruments/`, `components/tutorial/`, `components/hero.tsx`, `components/deploy-button.tsx`
-  - 공통 헤더·푸터 레이아웃 골격 (로그인 상태별 메뉴 분기, 동적 영역은 `<Suspense>` 경계 안에 배치)
-  - 완료 조건: `npm run build` 통과 + 로그아웃 상태에서 `/e/test` 접속 시 로그인 페이지로 리디렉션되지 않음
+  - `lib/supabase/proxy.ts` 인증 예외에 `/e/`, `/privacy` 추가 — 초대 페이지는 비로그인 열람이 전제. 조건문(50-55행)은 `getClaims()` 호출(47행) **이후** 블록이라 "`createServerClient`와 `getClaims` 사이 삽입 금지" 규칙에 저촉되지 않고, 새 `NextResponse`를 만들지 않으므로 쿠키 복사도 불필요하다
+  - 스타터 잔재 제거: `app/instruments/`, `app/protected/`, `components/tutorial/`, `components/hero.tsx`, `components/deploy-button.tsx`, `components/next-logo.tsx`, `components/supabase-logo.tsx`
+  - **`/protected` 참조 6곳을 `/dashboard`로 재지정** — 제거와 반드시 같은 단계에서 처리한다. 분리하면 중간 상태에서 로그인 후 404가 발생한다
+    - `components/google-auth-button.tsx:38` (`next` 기본값), `components/login-form.tsx:43` (`router.push`), `components/sign-up-form.tsx:48` (`emailRedirectTo`), `components/update-password-form.tsx:37` (`router.push`), `app/auth/callback/route.ts:33,37` (`next` 폴백 2곳)
+  - 공통 헤더·푸터를 `components/site-header.tsx`·`components/site-footer.tsx`로 **추출**해 `app/layout.tsx`에 한 번만 배치 — 신규 작성이 아니라 중복 제거다. `app/page.tsx:16-54`와 `app/protected/layout.tsx:17-51`이 nav·푸터를 거의 동일하게 복제하고 있어, 신규 라우트 5개에 또 복제하면 7중복이 된다
+  - `<Suspense>`는 `SiteHeader` 전체가 아니라 **`AuthButton` 하나만** 감싼다 — `components/auth-button.tsx`가 `getClaims()`를 호출하는 async 서버 컴포넌트라 경계가 필요하지만, 헤더 전체를 감싸면 정적 셸 범위가 좁아져 Task 006(초대 페이지 캐시)의 이점을 미리 깎아먹는다. `app/page.tsx:27-29`가 이미 올바른 형태다
+  - `app/layout.tsx` 제품화: `lang="en"`(28행) → `lang="ko"`, `metadata.title`(12행)을 제품명으로 교체. `metadataBase`의 `VERCEL_URL` 분기(6-8행)는 배포에 필요하므로 유지
+  - **`lib/utils.ts`의 `hasEnvVars`를 제거하지 말 것** — 8행 주석이 "튜토리얼용이라 제거 가능"이라고 하지만, `lib/supabase/proxy.ts:12-14`가 이 값으로 인증 검사를 통째로 건너뛴다. 지우면 환경 변수 미설정 시 모든 경로가 로그인으로 튕겨 개발이 막힌다
+  - `CLAUDE.md`의 PPR 참조 경로 갱신 — 예시로 지목된 `app/instruments/page.tsx`와 `app/protected/layout.tsx`가 모두 사라지므로 `app/layout.tsx`의 Suspense 예시로 교체
+  - 완료 조건: `npm run build` 통과 + 로그아웃 상태에서 `/e/test` 접속 시 로그인 페이지로 리디렉션되지 않음 + `/dashboard` 접속 시 리디렉션됨
 
 - **Task 002: 타입 정의 및 데이터 모델 설계**
+  - **`npm install zod`부터 시작** — 현재 미설치 상태다(`npm ls zod` 결과 비어 있음). PRD 기술 스택의 "신규 도입 필요" 표기가 사실이며, 빠뜨리면 첫 줄부터 컴파일되지 않는다
   - PRD 데이터 모델 6개 테이블(`events`, `participants`, `announcements`, `settlements`, `settlement_shares`, `event_views`) 스키마 설계 — 마이그레이션 실행은 Task 007
-  - `types/` 하위에 도메인 인터페이스 정의, `status`·`participant_status`는 리터럴 유니온으로 선언
-  - Zod 스키마 작성 (이벤트 생성 / RSVP 응답 / 정산 입력)
+  - `types/` 디렉터리를 **신규 생성**하고(현재 없음, `lib/`에는 `supabase/`와 `utils.ts`뿐) 도메인 인터페이스 정의. `status`·`participant_status`는 리터럴 유니온으로 선언
+  - Zod 스키마 작성 (이벤트 생성 / RSVP 응답 / 정산 입력). 숫자 범위와 문자열 길이는 `docs/MVP-PLAN.md`의 DDL `check` 제약과 일치시킨다 — `guest_count` 0-10, `note` 200자, `display_name` 1-20자. 어긋나면 클라이언트는 통과시키고 DB가 거부하는 상태가 된다
   - `lib/date.ts`에 `Asia/Seoul` 고정 포맷터 구현 — 서버는 UTC, 사용자는 KST라 각자 포맷하면 하이드레이션 불일치와 9시간 오차가 발생
   - Phase 2 UI용 더미 데이터 팩토리 작성
   - 완료 조건: `npx tsc --noEmit` 통과
@@ -62,15 +69,16 @@
   - 배치 근거: 초대 링크가 카카오톡으로 유통되는 것이 이 제품의 전제인데, 구글 OAuth는 인앱 브라우저(embedded WebView)를 `disallowed_useragent`로 차단한다. 카카오 로그인이 없으면 참여자 대다수가 로그인 자체를 못 해 제품이 동작하지 않으므로, 외부 콘솔 설정 리드타임까지 감안해 골격 단계에서 처리한다
   - 카카오 개발자 콘솔 앱 등록 및 키 발급
   - Supabase 대시보드에서 Kakao provider 활성화 + Redirect URL 등록
-  - `components/kakao-auth-button.tsx` 생성 (`signInWithOAuth({ provider: 'kakao' })`)
+  - **선행 리팩터링: divider를 그룹 레벨로 승격** — `components/google-auth-button.tsx:70-74`가 "Or continue with" 구분선을 컴포넌트 **내부**에 품고 있어, 카카오 버튼을 같은 구조로 복제하면 구분선이 두 번 렌더된다. `components/social-auth-buttons.tsx`로 divider를 올리고 각 버튼은 버튼만 렌더하도록 축소한다
+  - `components/kakao-auth-button.tsx` 생성 (`signInWithOAuth({ provider: 'kakao' })`). 에러 표시는 `useState<string | null>` + `<p className="text-sm text-red-500">`, 리다이렉트 성공 경로에서 `setIsLoading(false)` 호출 금지 — 기존 구글 버튼의 관례를 그대로 따른다
   - `components/login-form.tsx`와 `components/sign-up-form.tsx` **양쪽 모두**에 삽입, 모바일 기준 카카오를 상단 배치
-  - 기존 `app/auth/callback/route.ts` 재사용 — provider별 콜백 라우트를 새로 만들지 않음
+  - 기존 `app/auth/callback/route.ts` 재사용 — provider별 콜백 라우트를 새로 만들지 않음. 단 이 파일은 Task 001에서 `/protected` 폴백 때문에 이미 수정되며, 여기서 말하는 것은 **Task 003 범위에서 추가 수정하지 않는다**는 의미다
   - 완료 조건: **실기기 안드로이드·iOS 카카오톡 인앱 브라우저**에서 로그인 완주 후 `next` 경로로 복귀. 데스크톱 브라우저 테스트로 대체 불가
 
 ### Phase 2: UI/UX 완성 (더미 데이터 활용)
 
 - **Task 004: 공통 컴포넌트 라이브러리 구현**
-  - 필요한 shadcn/ui 컴포넌트 추가 설치 (`tabs`, `dialog`, `select`, `textarea`, `label`, `switch`, `sonner`)
+  - 필요한 shadcn/ui 컴포넌트 추가 설치 (`tabs`, `dialog`, `select`, `textarea`, `switch`, `sonner`) — `label`은 이미 설치되어 있다(`components/ui/label.tsx`)
   - 도메인 공통 컴포넌트 구현: 이벤트 카드, 참석 상태 배지, 인원 요약 블록, 빈 상태, 복사 버튼
   - 카톡 공유 문구 미리보기·복사 컴포넌트 (Clipboard API + 비지원 환경 폴백)
   - 모바일 우선 반응형 기준 확립 — 참여자 트래픽은 사실상 전량 모바일이며 대부분 카톡 인앱 브라우저
