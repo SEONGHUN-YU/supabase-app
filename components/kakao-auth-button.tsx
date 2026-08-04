@@ -5,51 +5,43 @@ import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
-/** Google 브랜드 로고 (lucide-react에는 브랜드 아이콘이 없어 인라인 SVG로 둔다) */
-function GoogleIcon() {
+/** 카카오 심볼 (lucide-react에는 브랜드 아이콘이 없어 인라인 SVG로 둔다) */
+function KakaoIcon() {
 	return (
 		<svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
 			<path
-				fill="#4285F4"
-				d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-			/>
-			<path
-				fill="#34A853"
-				d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
-			/>
-			<path
-				fill="#FBBC05"
-				d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z"
-			/>
-			<path
-				fill="#EA4335"
-				d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1a11 11 0 0 0-9.82 6.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"
+				fill="#000000"
+				d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-.7 2.7-.8 3.1 0 .2.1.4.3.4.1 0 .2 0 .3-.1.4-.3 3-2 4.1-2.8.5.1 1 .1 1.4.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"
 			/>
 		</svg>
 	);
 }
 
-interface GoogleAuthButtonProps extends React.ComponentPropsWithoutRef<'div'> {
+interface KakaoAuthButtonProps extends React.ComponentPropsWithoutRef<'div'> {
 	/** 로그인 성공 후 이동할 앱 내부 경로 */
 	next?: string;
 }
 
-export function GoogleAuthButton({
+export function KakaoAuthButton({
 	next = '/dashboard',
 	className,
 	...props
-}: GoogleAuthButtonProps) {
+}: KakaoAuthButtonProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 
-	const handleGoogleLogin = async () => {
+	const handleKakaoLogin = async () => {
 		const supabase = createClient();
 		setIsLoading(true);
 		setError(null);
 
 		try {
+			// scopes를 넘기지 않는다. Supabase는 기본 scope
+			// (account_email, profile_image, profile_nickname)를 덮어쓰지 않고
+			// 뒤에 붙이기만 하므로, 코드로는 줄일 수 없다.
+			// 실제로 요청되는 항목은 카카오 콘솔의 동의항목 설정이 결정한다.
 			const { error } = await supabase.auth.signInWithOAuth({
-				provider: 'google',
+				provider: 'kakao',
 				options: {
 					// Supabase가 인증 후 이 주소로 code를 붙여 되돌려 보낸다.
 					// 대시보드의 Redirect URLs에 등록된 주소여야 한다.
@@ -57,7 +49,7 @@ export function GoogleAuthButton({
 				},
 			});
 			if (error) throw error;
-			// 정상 흐름이면 이 시점에 Google 페이지로 이동하므로
+			// 정상 흐름이면 이 시점에 카카오 페이지로 이동하므로
 			// 로딩 상태를 되돌리지 않는다 (버튼 깜빡임 방지).
 		} catch (error: unknown) {
 			setError(error instanceof Error ? error.message : 'An error occurred');
@@ -65,20 +57,19 @@ export function GoogleAuthButton({
 		}
 	};
 
-	// 구분선은 여기 두지 않는다. `social-auth-buttons.tsx`가 소유한다 —
-	// 버튼마다 품으면 소셜 버튼을 늘릴 때마다 구분선이 중복 렌더된다.
 	return (
 		<div className={cn('flex flex-col gap-2', className)} {...props}>
 			{error && <p className="text-sm text-red-500">{error}</p>}
+			{/* 카카오 브랜드 가이드: 배경 #FEE500 + 검정 텍스트 고정.
+			    테마 토큰을 쓰면 다크 모드에서 브랜드 색이 깨진다. */}
 			<Button
 				type="button"
-				variant="outline"
-				className="w-full"
-				onClick={handleGoogleLogin}
+				className="w-full bg-[#FEE500] text-black hover:bg-[#FDD835]"
+				onClick={handleKakaoLogin}
 				disabled={isLoading}
 			>
-				<GoogleIcon />
-				{isLoading ? '이동 중...' : '구글로 계속하기'}
+				<KakaoIcon />
+				{isLoading ? '이동 중...' : '카카오로 계속하기'}
 			</Button>
 		</div>
 	);

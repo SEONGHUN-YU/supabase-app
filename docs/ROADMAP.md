@@ -42,7 +42,7 @@
 
 ### Phase 1: 애플리케이션 골격 구축
 
-- **Task 001: 라우트 구조 및 공통 레이아웃 구성** - 우선순위
+- **Task 001: 라우트 구조 및 공통 레이아웃 구성** ✅ - 우선순위
   - App Router 라우트 골격 생성: `/dashboard`, `/events/new`, `/events/[id]/manage`, `/e/[token]`, `/privacy`
   - 각 페이지를 제목과 자리표시자만 있는 빈 껍데기로 생성 (기능 구현 제외)
   - `lib/supabase/proxy.ts` 인증 예외에 `/e/`, `/privacy` 추가 — 초대 페이지는 비로그인 열람이 전제. 조건문(50-55행)은 `getClaims()` 호출(47행) **이후** 블록이라 "`createServerClient`와 `getClaims` 사이 삽입 금지" 규칙에 저촉되지 않고, 새 `NextResponse`를 만들지 않으므로 쿠키 복사도 불필요하다
@@ -56,7 +56,7 @@
   - `CLAUDE.md`의 PPR 참조 경로 갱신 — 예시로 지목된 `app/instruments/page.tsx`와 `app/protected/layout.tsx`가 모두 사라지므로 `app/layout.tsx`의 Suspense 예시로 교체
   - 완료 조건: `npm run build` 통과 + 로그아웃 상태에서 `/e/test` 접속 시 로그인 페이지로 리디렉션되지 않음 + `/dashboard` 접속 시 리디렉션됨
 
-- **Task 002: 타입 정의 및 데이터 모델 설계**
+- **Task 002: 타입 정의 및 데이터 모델 설계** ✅
   - **`npm install zod`부터 시작** — 현재 미설치 상태다(`npm ls zod` 결과 비어 있음). PRD 기술 스택의 "신규 도입 필요" 표기가 사실이며, 빠뜨리면 첫 줄부터 컴파일되지 않는다
   - PRD 데이터 모델 6개 테이블(`events`, `participants`, `announcements`, `settlements`, `settlement_shares`, `event_views`) 스키마 설계 — 마이그레이션 실행은 Task 007
   - `types/` 디렉터리를 **신규 생성**하고(현재 없음, `lib/`에는 `supabase/`와 `utils.ts`뿐) 도메인 인터페이스 정의. `status`·`participant_status`는 리터럴 유니온으로 선언
@@ -67,22 +67,29 @@
 
 - **Task 003: 카카오 로그인 도입** - 우선순위
   - 배치 근거: 초대 링크가 카카오톡으로 유통되는 것이 이 제품의 전제인데, 구글 OAuth는 인앱 브라우저(embedded WebView)를 `disallowed_useragent`로 차단한다. 카카오 로그인이 없으면 참여자 대다수가 로그인 자체를 못 해 제품이 동작하지 않으므로, 외부 콘솔 설정 리드타임까지 감안해 골격 단계에서 처리한다
-  - 카카오 개발자 콘솔 앱 등록 및 키 발급 — **리드타임 없음(20~30분)**. 초안의 "반나절"은 근거가 없었고, 심사가 필요한 비즈 앱 전환은 `account_email` 동의항목을 쓸 때만 해당한다
-  - **동의항목은 `profile_nickname`·`profile_image`만.** `account_email`은 수집하지 않는다 — 비즈 앱 전환을 피하기 위한 결정이며, 대가로 구글·카카오 계정이 분리된다(`MVP-PLAN.md`의 N4). 로그인 페이지에 "가입할 때 쓴 수단으로 로그인해 주세요" 안내를 함께 넣는다
-  - Supabase 대시보드에서 Kakao provider 활성화 + Client ID/Secret 입력. **"Allow users without an email"을 반드시 켠다** — 빠뜨리면 이메일 없는 카카오 계정의 로그인이 실패한다
-  - 카카오 콘솔 Redirect URI에는 **Supabase 콜백(`https://<project-ref>.supabase.co/auth/v1/callback`)만** 넣는다. 최종 복귀 주소는 `redirectTo`로 넘어가고 그 값을 검사하는 쪽은 Supabase이므로, 터널·프로덕션 도메인은 **Supabase의 Redirect URLs 허용 목록**에 등록한다
+  - 카카오 개발자 콘솔 앱 등록 및 키 발급. 콘솔 클릭 작업 자체는 20-30분이지만 **비즈 앱 전환이 선행되어야 한다**(아래)
+  - **비즈 앱 전환은 필수다.** Supabase(GoTrue)가 scope를 `account_email profile_image profile_nickname`으로 **하드코딩**해 요청하는데, `signInWithOAuth`의 `scopes`는 이를 교체하지 않고 뒤에 덧붙기만 한다. 요청에서 뺄 방법이 세 곳(카카오 콘솔·Supabase 대시보드·앱 코드) 모두에 없고, 카카오는 미설정 동의항목이 섞이면 **KOE205로 거부**한다. Supabase 문서의 "account_email을 빼고 Allow users without an email을 켜라"는 안내는 이 조합에서 성립하지 않는다 — 실측으로 확인했다
+  - **동의항목은 `profile_nickname`·`profile_image`·`account_email` 세 개 모두** 설정한다. `account_email`은 **필수 동의**로 둔다 (설정 완료)
+  - **이메일 수집이 곧 계정 통합은 아니다.** Supabase의 자동 연결은 두 provider의 이메일이 **같을 때만** 동작하는데, 한국에서는 카카오=네이버·한메일, 구글=gmail로 다른 경우가 일반적이다. 따라서 N4 계정 분리는 **잔존**하며, 로그인 페이지의 "가입할 때 쓴 수단으로 로그인해 주세요" 안내를 **유지한다**. 진짜 해법은 manual linking(`linkIdentity()`)이며 MVP 범위 밖이다
+  - Supabase 대시보드에서 Kakao provider 활성화 + Client ID/Secret 입력. Client Secret은 발급만으로 부족하고 **활성화 상태**여야 한다
+  - 카카오 콘솔 Redirect URI에는 **Supabase 콜백(`https://<project-ref>.supabase.co/auth/v1/callback`)만** 넣는다. 최종 복귀 주소는 `redirectTo`로 넘어가고 그 값을 검사하는 쪽은 Supabase이므로, 터널·프로덕션 도메인은 **Supabase의 Redirect URLs 허용 목록**에 등록한다. 사이트 도메인(웹 플랫폼)은 카카오 JS SDK용이라 이 흐름과 무관하다
+  - 이메일을 수집하게 되므로 **개인정보 처리방침(F015)의 수집 항목에 이메일을 명시**한다 (Task 012와 연결)
   - **선행 리팩터링: divider를 그룹 레벨로 승격** — `components/google-auth-button.tsx:70-74`가 "Or continue with" 구분선을 컴포넌트 **내부**에 품고 있어, 카카오 버튼을 같은 구조로 복제하면 구분선이 두 번 렌더된다. `components/social-auth-buttons.tsx`로 divider를 올리고 각 버튼은 버튼만 렌더하도록 축소한다
   - `components/kakao-auth-button.tsx` 생성 (`signInWithOAuth({ provider: 'kakao' })`). 에러 표시는 `useState<string | null>` + `<p className="text-sm text-red-500">`, 리다이렉트 성공 경로에서 `setIsLoading(false)` 호출 금지 — 기존 구글 버튼의 관례를 그대로 따른다
   - `components/login-form.tsx`와 `components/sign-up-form.tsx` **양쪽 모두**에 삽입, 모바일 기준 카카오를 상단 배치
   - 기존 `app/auth/callback/route.ts` 재사용 — provider별 콜백 라우트를 새로 만들지 않음. 단 이 파일은 Task 001에서 `/protected` 폴백 때문에 이미 수정되며, 여기서 말하는 것은 **Task 003 범위에서 추가 수정하지 않는다**는 의미다
-  - **실기기 검증 전제: HTTPS 공개 URL이 필요하다.** 카톡 인앱 브라우저는 `localhost`에 접근할 수 없는데 Vercel 배포는 Task 013이다. 이 순서 간극은 임시 터널로 메운다 — `cloudflared tunnel --url http://localhost:3000`으로 주소를 받아 Supabase Redirect URLs에 등록하고, 그 주소를 **카톡으로 자신에게 보내 인앱 브라우저에서 연다**. 외부 브라우저로 열면 검증이 성립하지 않는다
   - 회귀 확인: divider 승격이 기존 구글 로그인을 깨지 않았는지 `/auth/login`·`/auth/sign-up` 양쪽에서 확인 (구분선이 한 번만 렌더되는지 포함)
-  - 완료 조건: **실기기 안드로이드·iOS 카카오톡 인앱 브라우저**에서 로그인 완주 후 `next` 경로로 복귀. 특히 `next=/e/<token>` 형태 — 이 제품의 실제 진입 경로다. 데스크톱 브라우저 테스트로 대체 불가
+  - **이연 ①: 계정 자동 연결 실동작 미검증.** 카카오 계정과 **같은 이메일**을 쓰는 구글 계정이 없어 테스트를 만들 수 없었다. 검증하려면 동일 이메일의 구글 계정으로 로그인한 뒤 `auth.identities`에서 두 provider 행이 같은 `user_id`로 묶이는지 확인한다. 우선순위는 낮다 — 대부분의 사용자는 두 이메일이 달라 애초에 해당되지 않는다
+  - **이연 ②: 실기기 카톡 인앱 브라우저 검증을 Task 013으로 옮긴다.** 카톡 인앱은 `localhost`에 접근할 수 없어 HTTPS 공개 URL이 필요한데, 임시 터널 대신 **실제 배포 주소로 한 번에 처리하기로 했다.** 터널은 실행할 때마다 주소가 바뀌고 Supabase 허용 목록을 두 번 손봐야 하므로, 배포 이후에 하면 그 왕복이 사라진다
+    - **대가**: N1(카톡 인앱에서 로그인이 되는가)이 이 제품의 전제인데, 그 검증이 Phase 4까지 미뤄진다. 원래 Task 003을 Phase 1에 배치한 이유가 이 리스크를 앞당기려는 것이었으므로 **의도적으로 되돌린 결정**이다. 만약 인앱에서 문제가 드러나면 Phase 2-3을 쌓아올린 뒤에 발견하게 된다
+    - **잔여 리스크 평가**: 카카오 로그인은 카톡 인앱을 위해 만들어진 표준 경로이고 데스크톱 완주는 이미 확인했다. 남은 미지수는 WebView의 리디렉션 처리와 세션 쿠키 유지뿐이라 실패 가능성은 낮게 본다. 다만 **검증 전까지는 가정**이다
+  - 완료 조건(개정): 데스크톱 브라우저에서 카카오 로그인 완주 → `/dashboard` 도달, DB에 `provider=kakao` identity와 `profiles` 행 생성 확인. **실기기 완주는 Task 013의 완료 조건으로 이관**
 
 ### Phase 2: UI/UX 완성 (더미 데이터 활용)
 
 - **Task 004: 공통 컴포넌트 라이브러리 구현**
-  - 필요한 shadcn/ui 컴포넌트 추가 설치 (`tabs`, `dialog`, `select`, `textarea`, `switch`, `sonner`) — `label`은 이미 설치되어 있다(`components/ui/label.tsx`)
+  - **선행: `app/globals.css`의 shadcn 테마 토큰 복구** — 현재 CSS 리셋(62줄)만 있고 `--background`·`--foreground`·`--primary` 등이 **전부 정의되어 있지 않다**. 브라우저 실측 결과 Login 버튼 배경이 `rgba(0,0,0,0)` 투명으로 계산되고 다크 모드도 동작할 수 없다. `components/ui/**`가 전부 이 토큰을 참조하므로 Task 005·006이 색 없는 화면 위에 쌓인다. `@custom-variant dark` + `:root`/`.dark` 변수 + `@theme inline` 노출을 함께 복구한다
+  - 필요한 shadcn/ui 컴포넌트 추가 설치 (`tabs`, `dialog`, `select`, `textarea`, `switch`, `sonner`) — `badge`·`button`·`card`·`checkbox`·`dropdown-menu`·`input`·`label` 7개는 이미 설치되어 있다
   - 도메인 공통 컴포넌트 구현: 이벤트 카드, 참석 상태 배지, 인원 요약 블록, 빈 상태, 복사 버튼
   - 카톡 공유 문구 미리보기·복사 컴포넌트 (Clipboard API + 비지원 환경 폴백)
   - 모바일 우선 반응형 기준 확립 — 참여자 트래픽은 사실상 전량 모바일이며 대부분 카톡 인앱 브라우저
@@ -94,7 +101,8 @@
   - 이벤트 생성 폼: 제목·일시·장소·지도 링크·안내·정원·응답 마감 입력, 일시가 한국 시간 기준임을 명시
   - 생성 완료 화면: 초대 링크와 카톡 공유 문구를 함께 표시하고 복사
   - 이벤트 관리 페이지: 상태별 참여자 목록, 동반 포함 총원과 정원 대비 표시, 한마디 확인 영역, 공지 작성·목록, 명단 공개 토글, 마감/취소 전환, 복제, 정산 섹션
-  - 전 화면을 더미 데이터로 구성하고 반응형 적용
+  - 전 화면을 더미 데이터로 구성하고 반응형 적용 — **`lib/fixtures.ts`를 페이지에서 직접 호출한다.** 조회 함수 계층을 따로 두지 않는다. Task 008에서 Supabase 쿼리로 바꿀 때 호출 한 줄만 교체되어 경계가 명확하다
+  - `[id]`·`[token]` 페이지에서 **`params`를 읽지 않는다** — `cacheComponents` 환경에서 `params`는 동적 API라 읽는 순간 `<Suspense>` 경계가 필요해진다. 더미 단계에서는 불필요한 복잡도이고, 실제 연동(Task 008·009) 때 함께 처리한다
   - 완료 조건: 더미 상태로 랜딩 → 대시보드 → 생성 → 관리 전 구간 네비게이션 완주
 
 - **Task 006: 초대 페이지 UI 완성 (모바일 우선)**
@@ -161,6 +169,7 @@
 
 - **Task 012: 개인정보 대응 및 지표 계측**
   - `/privacy` 내용 작성: 수집 항목, 이용 목적, 보유 기간, 공개 범위(이름은 해당 모임 주최자·참여자에게만 노출)
+    - 수집 항목에 **소셜 로그인으로 받는 이메일·닉네임·프로필 사진**을 반드시 포함한다. 카카오 비즈 앱 전환으로 `account_email`을 받게 됐다(Task 003). **이메일은 어디에도 노출하지 않는다**는 점도 함께 적는다
   - `event_views` 기록 구현 — 봇 User-Agent 제외, 원본 IP 대신 해시 저장
   - 지표 산출 쿼리 작성: 주최자 재사용률, 신규 참여자 전환율, 재방문 응답률, 정산 완료율
   - Supabase 무료 플랜의 1주 미사용 시 일시정지 정책 대응 결정 (유료 전환 또는 keep-alive) — 검증 기간 중 DB가 정지되면 첫인상을 잃고 지표도 오염됨
@@ -169,9 +178,10 @@
 - **Task 013: 성능 최적화 및 배포**
   - Cache Components 경계 점검 — 빌드 출력의 `◐` 표시로 초대 페이지 정적 셸이 프리렌더되는지 확인
   - 번들·이미지·폰트 점검 및 모바일 로딩 확인
-  - Vercel 배포, 환경 변수 설정, 프로덕션 도메인 기준 OAuth Redirect URL 등록
-  - **Task 003에서 등록한 임시 터널 URL을 Supabase Redirect URLs 허용 목록에서 제거** — 남겨두면 만료된 터널 주소가 리디렉션 허용 목록에 계속 열려 있게 된다
+  - Vercel 배포, 환경 변수 설정, 프로덕션 도메인 기준 OAuth Redirect URL 등록 — Supabase Redirect URLs와 카카오 웹 플랫폼 사이트 도메인 양쪽. 카카오 Redirect URI는 Supabase 콜백 그대로 두고 건드리지 않는다
   - 프로덕션에서 `x-forwarded-host` 기반 콜백 리디렉션 동작 확인
+  - **N1 검증 게이트 — Task 003에서 이관됨.** 실기기 **안드로이드·iOS 카카오톡 인앱 브라우저**에서 카카오 로그인 완주 후 `next` 경로 복귀. 특히 `next=/e/<token>` 형태(이 제품의 실제 진입 경로). 데스크톱 브라우저와 Playwright로 대체 불가
+    - 여기서 실패하면 제품의 전제가 무너지므로 **다른 최적화보다 먼저 확인한다.** Phase 1에서 미뤄온 리스크가 여기서 정산된다
   - 실기기 최종 점검: 안드로이드·iOS 카카오톡 인앱 브라우저에서 링크 → 로그인 → 응답 → 정산 확인 완주
 
 ---

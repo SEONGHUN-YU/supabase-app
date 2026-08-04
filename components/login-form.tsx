@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { GoogleAuthButton } from '@/components/google-auth-button';
+import { SocialAuthButtons } from '@/components/social-auth-buttons';
 import {
 	Card,
 	CardContent,
@@ -92,7 +92,7 @@ export function LoginForm({
 							<Button type="submit" className="w-full" disabled={isLoading}>
 								{isLoading ? 'Logging in...' : 'Login'}
 							</Button>
-							<GoogleAuthButton />
+							<SocialAuthButtons />
 						</div>
 						<div className="mt-4 text-center text-sm">
 							Don&apos;t have an account?{' '}

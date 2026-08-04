@@ -167,8 +167,8 @@
     {
       "id": "37fea9e6-2e91-4653-9f52-b3cb6328e58f",
       "name": "Task 003: 카카오 로그인 도입",
-      "description": "카카오 로그인을 추가한다. 구글 OAuth는 embedded WebView를 disallowed_useragent로 차단하는데 카카오톡 인앱 브라우저가 정확히 그 WebView다. 초대 링크가 카카오톡으로 유통되는 것이 이 제품의 전제이므로, 카카오 로그인이 없으면 참여자 대다수가 로그인 자체를 못 해 제품이 동작하지 않는다.\n\n리드타임은 없다. 초안의 \"반나절\"은 근거 없는 숫자였고 docs에서 정정했다. Supabase 문서 기준 콘솔 설정은 6단계 클릭 작업으로 20~30분이다. 심사가 걸리는 비즈 앱 전환은 account_email 동의항목을 쓸 때만 필요한데, 이메일을 수집하지 않기로 확정했다.\n\n대가로 구글·카카오 계정이 분리된다(MVP-PLAN의 N4). 이메일이 없으면 Supabase의 자동 identity linking이 동작하지 않기 때문이다. MVP는 감수하고 로그인 페이지 안내 문구로 완화한다.\n\n실기기 검증에 HTTPS 공개 URL이 필요한데 배포는 Task 013이다. 이 간극은 임시 터널(cloudflared)로 메운다.\n\nTask 001 이후여야 한다. 최종 검증이 /dashboard 도달을 확인하기 때문이다.",
-      "notes": "docs 수정은 이미 완료됐다. MVP-PLAN(카카오 섹션 소요시간, 체크리스트 9번 터널 전제, N4 리스크 항목과 상세), PRD(로그인 페이지 안내 문구), ROADMAP(Task 003 콘솔 설정 상세와 완료 조건, Task 013 터널 URL 제거), LEAN-CANVAS(비용 항목).\n\nMVP-PLAN.md와 PRD.md는 의도적으로 Prettier 미적용 상태다. 이 두 파일에 prettier --write를 돌리면 표 정렬이 대량으로 바뀌어 실제 변경이 묻힌다. ROADMAP.md와 LEAN-CANVAS.md는 Prettier를 통과해야 한다.\n\nTask 013에서 터널 URL을 Supabase Redirect URLs 허용 목록에서 제거해야 한다. 남겨두면 만료된 주소가 리디렉션 허용 목록에 계속 열려 있게 된다.",
+      "description": "카카오 로그인을 추가한다. 구글 OAuth는 embedded WebView를 disallowed_useragent로 차단하는데 카카오톡 인앱 브라우저가 정확히 그 WebView다. 초대 링크가 카카오톡으로 유통되는 것이 이 제품의 전제이므로, 카카오 로그인이 없으면 참여자 대다수가 로그인 자체를 못 해 제품이 동작하지 않는다.\n\n외부 콘솔 설정 완료. 비즈 앱 전환, 동의항목 3종(profile_nickname, profile_image, account_email 필수 동의), Supabase Kakao provider 활성화. 코드도 작성 완료이며 데스크톱 로그인 완주까지 확인했다.\n\n핵심 사실 1 (실측): 비즈 앱 전환은 선택이 아니라 필수였다. GoTrue가 scope를 account_email profile_image profile_nickname으로 하드코딩해 요청하고, signInWithOAuth의 scopes는 교체가 아니라 append다. 카카오는 미설정 동의항목이 섞이면 KOE205로 거부한다. 따라서 account_email을 빼는 선택지가 존재하지 않았다. Supabase 문서의 \"account_email을 빼고 Allow users without an email을 켜라\"는 안내는 이 조합에서 성립하지 않는다.\n\n핵심 사실 2 (정정): N4(구글·카카오 계정 분리)는 해소되지 않았다. 한때 이메일을 수집하게 됐으니 해소됐다고 판단했으나 틀렸다. Supabase의 자동 연결은 두 provider의 이메일이 \"같을 때만\" 동작한다. 이메일을 받는 것과 계정이 통합되는 것은 별개다. 한국에서는 카카오=네이버/한메일, 구글=gmail로 다른 경우가 일반적이고 이 프로젝트의 테스트 계정도 카카오가 naver.com이라 실제로 분리된다. 따라서 로그인 페이지의 \"가입할 때 쓴 수단으로 로그인해 주세요\" 안내를 유지한다. 진짜 해법은 manual linking(linkIdentity(), beta)이며 MVP 범위 밖이다.\n\n남은 것은 실기기 검증뿐이며 사용자 결정으로 Task 013(배포)으로 이관했다. 임시 터널 대신 실제 배포 주소로 한 번에 처리한다.\n\nTask 001 이후여야 한다. 최종 검증이 /dashboard 도달을 확인하기 때문이다.",
+      "notes": "docs 정정 완료. MVP-PLAN(§7 카카오 섹션, N4 리스크 행과 상세 절), PRD(로그인 페이지 안내 문구, 개인정보 처리방침 수집 항목에 이메일), ROADMAP(Task 003 비즈 앱 필수 + N4 잔존 + 검증 이연, Task 012 이메일 수집 명시), LEAN-CANVAS(비용 항목).\n\nN4는 해소되지 않았다. 두 번 판단을 뒤집었으므로 결론만 남긴다: Supabase의 자동 계정 연결은 두 provider의 이메일이 \"같을 때만\" 동작한다. 이메일을 수집하게 된 것과 계정이 통합되는 것은 별개다. 한국에서는 카카오=네이버/한메일, 구글=gmail로 다른 경우가 일반적이라 대부분 별개 계정이 된다. 실제로 이 프로젝트의 첫 테스트 계정도 카카오는 naver.com이고 구글은 다른 주소다. 따라서 로그인 페이지의 \"가입할 때 쓴 수단으로 로그인해 주세요\" 안내는 유지한다. 진짜 해법은 manual linking(linkIdentity(), beta)이며 MVP 범위 밖이다.\n\n실측 확인된 것: 카카오 로그인 완주, auth.users.email에 인증된 이메일(email_verified true) 수신, raw_user_meta_data.name에 닉네임, avatar_url도 채워짐(프로필 사진 동의항목 추가함), handle_new_user 트리거가 public.profiles 행을 생성하고 full_name에 닉네임을 넣음.\n\nMVP-PLAN.md와 PRD.md는 의도적으로 Prettier 미적용 상태다. 이 두 파일에 prettier --write를 돌리면 표 정렬이 대량으로 바뀌어 실제 변경이 묻힌다. ROADMAP.md와 LEAN-CANVAS.md는 Prettier를 통과해야 한다.",
       "status": "pending",
       "dependencies": [
         {
@@ -176,7 +176,7 @@
         }
       ],
       "createdAt": "2026-08-04T01:28:00.675Z",
-      "updatedAt": "2026-08-04T08:35:52.319Z",
+      "updatedAt": "2026-08-05T01:03:25.150Z",
       "relatedFiles": [
         {
           "path": "components/google-auth-button.tsx",
@@ -222,9 +222,212 @@
           "lineEnd": 76
         }
       ],
-      "implementationGuide": "1. 외부 콘솔 설정 (코드 아님, 사용자가 직접)\n카카오 개발자 콘솔: 앱 생성 → 플랫폼에 웹 도메인 등록 → REST API 키(client_id) → 카카오 로그인 활성화 ON → Client Secret 발급 및 활성화\n- Redirect URI에는 Supabase 콜백만 넣는다: https://<project-ref>.supabase.co/auth/v1/callback\n  터널/프로덕션 도메인을 여기 넣지 않는다. 최종 복귀 주소는 redirectTo로 넘어가고 그 값을 검사하는 쪽은 Supabase다\n- 동의항목은 profile_nickname, profile_image만. account_email 제외\nSupabase 대시보드: Kakao provider 활성화, Client ID/Secret 입력\n- \"Allow users without an email\"을 반드시 켠다. 빠뜨리면 로그인이 실패한다\n- Redirect URLs 허용 목록에 터널 URL 추가\n\n2. 선행 리팩터링 — divider 승격\ncomponents/google-auth-button.tsx:70-74가 \"Or continue with\" 구분선을 컴포넌트 내부에 품고 있다. 카카오 버튼을 같은 구조로 복제하면 구분선이 두 번 렌더된다.\n- google-auth-button.tsx에서 divider 제거, 버튼과 에러 표시만 남긴다\n- components/social-auth-buttons.tsx 신설: divider + 카카오(위) + 구글(아래)\n- login-form.tsx:96과 sign-up-form.tsx:109의 <GoogleAuthButton />를 <SocialAuthButtons />로 교체. 양쪽 모두 고친다\n\n3. components/kakao-auth-button.tsx — google-auth-button.tsx의 관례를 그대로 따른다\n- next prop 기본값 '/dashboard', redirectTo는 ${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}\n- 에러는 useState<string | null> + <p className=\"text-sm text-red-500\">\n- 리다이렉트 성공 경로에서 setIsLoading(false) 호출 금지 (버튼 깜빡임 방지)\n- signInWithOAuth({ provider: 'kakao' }) — scopes를 코드로 넘기지 않는다. 동의항목은 콘솔 설정이다\n- 카카오 브랜드: 배경 #FEE500, 검정 텍스트, 심볼은 인라인 SVG (lucide에 브랜드 아이콘 없음)\n\n4. app/auth/callback/route.ts는 수정하지 않는다. PKCE 콜백과 오픈 리다이렉트 방어가 이미 provider 중립적이다\n\n5. 로그인 페이지에 \"가입할 때 쓴 수단으로 로그인해 주세요\" 안내 추가 (N4 완화, PRD 로그인 페이지 명세)\n\n6. 터널로 실기기 검증\ncloudflared tunnel --url http://localhost:3000\n- 발급된 HTTPS URL을 Supabase Redirect URLs에 등록. 카카오 콘솔은 손대지 않는다\n- window.location.origin이 터널 도메인이 되므로 코드 변경 없음\n- 터널 URL을 카톡으로 자신에게 보내 인앱 브라우저에서 연다. 외부 브라우저로 열면 검증이 성립하지 않는다",
-      "verificationCriteria": "1. npm run build 통과, npm run lint가 기존 미해결 1건(components/theme-switcher.tsx:21)만 남김\n2. 구글 로그인 회귀 — divider 승격이 기존 흐름을 깨지 않았는지 데스크톱에서 먼저 확인. /auth/login과 /auth/sign-up 양쪽에서 구분선이 한 번만 렌더되는지 포함\n3. 데스크톱 Chrome에서 카카오 로그인 → /dashboard 도달\n4. 안드로이드 카톡 인앱 브라우저: 터널 URL → 카카오 로그인 완주 → next 경로 복귀\n5. iOS 카톡 인앱 브라우저: 같은 절차. 두 OS 모두 필요하다 (MVP-PLAN.md 체크리스트 9번)\n6. next=/e/<token> 형태로 복귀하는지 확인. 이 제품의 실제 진입 경로다\n7. Supabase 대시보드에서 생성된 사용자의 email이 비어 있고 로그인이 정상 동작하는지 확인\n\n4~6은 Playwright로 대체할 수 없다. N1의 유일한 검증법이다.",
+      "implementationGuide": "코드 작업은 완료됐다. 아래는 구현된 내용과 남은 검증 절차다.\n\n[완료] 1. divider 승격\ncomponents/google-auth-button.tsx에서 \"Or continue with\" 구분선을 제거하고 버튼과 에러 표시만 남겼다. 문구도 한국어화했다(구글로 계속하기 / 이동 중...). 구분선을 버튼이 품고 있으면 소셜 버튼을 늘릴 때마다 중복 렌더된다.\n\n[완료] 2. components/kakao-auth-button.tsx 생성\n- next prop 기본값 '/dashboard', redirectTo는 ${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}\n- 에러는 useState<string | null> + <p className=\"text-sm text-red-500\">\n- 리다이렉트 성공 경로에서 setIsLoading(false) 호출하지 않음\n- signInWithOAuth({ provider: 'kakao' }) — scopes를 넘기지 않는다. append-only라 의미가 없다는 주석을 남겼다\n- 브랜드 색 #FEE500 배경 + 검정 텍스트 하드코딩. 테마 토큰을 쓰면 다크 모드에서 브랜드 색이 깨진다\n\n[완료] 3. components/social-auth-buttons.tsx 생성\ndivider + 카카오(위) + 구글(아래). login-form.tsx와 sign-up-form.tsx 양쪽의 <GoogleAuthButton />를 <SocialAuthButtons />로 교체했다.\n\n[완료] 4. app/auth/callback/route.ts는 수정하지 않았다. PKCE 콜백과 오픈 리다이렉트 방어가 provider 중립적이다.\n\n[남음] 5. 실제 카카오 로그인 검증\n데스크톱 → 실기기 순서로 진행한다. 실기기는 터널이 필요하다:\ncloudflared tunnel --url http://localhost:3000\n- 발급 URL을 Supabase Redirect URLs에 등록. 카카오 콘솔은 손대지 않는다\n- 터널 URL을 카톡으로 자신에게 보내 인앱 브라우저에서 연다. 외부 브라우저로 열면 검증이 성립하지 않는다\n- quick tunnel은 실행할 때마다 호스트명이 바뀌므로 검증 직전에 띄운다\n\n[남음] 6. 검증 후 정리\nTask 013에서 터널 URL을 Supabase 허용 목록에서 제거한다.",
+      "verificationCriteria": "1. npm run build 통과, npm run lint가 기존 미해결 1건(components/theme-switcher.tsx:21)만 남김 — 확인 완료\n2. 구글 로그인 회귀: /auth/login과 /auth/sign-up 양쪽에서 구분선이 한 번만 렌더되고 버튼 순서가 카카오→구글 — 확인 완료 (dividerCount 1, 카카오 배경 rgb(254,229,0))\n3. 데스크톱 Chrome에서 카카오 로그인 완주 후 /dashboard 도달 — 확인 완료\n4. DB 확인: auth.identities에 provider=kakao 행, auth.users.email에 인증된 이메일, public.profiles 행 생성 및 full_name에 닉네임 — 확인 완료\n5. 계정 자동 연결(N4) 실동작 — **이연**. 카카오 계정과 같은 이메일을 쓰는 구글 계정이 없어 테스트를 구성할 수 없다. 검증하려면 동일 이메일의 구글 계정으로 로그인한 뒤 auth.identities에서 두 provider 행이 같은 user_id로 묶이는지 확인한다. 우선순위 낮음 — 대부분의 사용자는 두 이메일이 달라 애초에 해당되지 않는다\n6. 실기기 안드로이드 카톡 인앱 브라우저: 터널 URL → 로그인 완주 → next 경로 복귀 — 미검증\n7. 실기기 iOS 카톡 인앱 브라우저: 같은 절차. 두 OS 모두 필요 — 미검증\n8. next=/e/<token> 형태로 복귀 확인. 이 제품의 실제 진입 경로다 — 미검증\n\n6~8은 Playwright로 대체할 수 없다(N1의 유일한 검증법). 터널은 quick tunnel이라 실행할 때마다 주소가 바뀌므로 검증 직전에 띄우고 Supabase Redirect URLs에 등록한다.",
       "analysisResult": "Phase 1 애플리케이션 골격 구축. docs/ROADMAP.md를 코드베이스 실측 결과로 갱신한 뒤 작업 정의를 동기화한 버전이다.\n\n확정 결정: app/protected/를 제거하고 /protected 참조 6곳을 전부 /dashboard로 재지정한다.\n\n실측 사실:\n- /protected 참조는 5개 파일 6곳이다: google-auth-button.tsx:38, login-form.tsx:43, sign-up-form.tsx:48, update-password-form.tsx:37, app/auth/callback/route.ts:33 및 37\n- lib/supabase/proxy.ts:50-55 조건문은 getClaims() 호출(47행) 이후 블록이라 예외 경로 추가가 안전하다\n- app/page.tsx:16-54와 app/protected/layout.tsx:17-51이 nav·푸터를 거의 동일하게 복제한다\n- components/auth-button.tsx는 getClaims()를 호출하는 async 서버 컴포넌트다\n- app/layout.tsx가 lang=\"en\"과 스타터 metadata 상태다\n- google-auth-button.tsx:70-74가 divider를 컴포넌트 내부에 품고 있다\n- lib/utils.ts의 hasEnvVars는 proxy.ts:12-14가 인증 조기 반환에 쓰므로 제거 금지다\n- zod 미설치, types/ 디렉터리 부재\n- components/ui/label.tsx는 이미 존재한다\n\n저장소 제약: Next.js 16 App Router, 미들웨어는 proxy.ts, cacheComponents:true, getClaims() 사용, Supabase 클라이언트를 모듈 최상위에 담지 않음, Server Action 신규 도입 금지, Tailwind v4, components/ui/**는 shadcn CLI 생성물, Prettier 탭 들여쓰기 폭2 작은따옴표, import는 @/ 별칭, 주석과 문서는 한국어"
+    },
+    {
+      "id": "0ff74c63-94d4-42f1-a8a1-72e55d032c86",
+      "name": "Task 004: 공통 컴포넌트 라이브러리 구현",
+      "description": "디자인 시스템 토큰을 복구하고, Phase 2 전체가 재사용할 도메인 공통 컴포넌트를 만든다.\n\napp/globals.css에 shadcn 테마 토큰이 통째로 없다는 것을 실측으로 확인했다. 브라우저에서 --background, --foreground, --primary 등 8개 토큰이 모두 미정의이고 Login 버튼 배경이 rgba(0,0,0,0) 투명으로 계산된다. components/ui/**의 모든 컴포넌트가 이 토큰을 참조하므로, 복구하지 않으면 Task 005·006이 색 없는 화면 위에 쌓인다. 이 복구가 첫 단계다.\n\n도메인 컴포넌트는 Task 005와 006 양쪽에서 쓰이는 것만 만든다. 한 곳에서만 쓰는 것은 해당 작업에서 만든다.\n\n수락 기준: 라이트·다크 모드에서 버튼·카드 색이 정상 렌더되고, 공통 컴포넌트가 두 개 이상의 페이지에서 재사용되는 구조.",
+      "notes": "components/ui/** 는 shadcn CLI 생성물이다. 설치 후 직접 수정하지 말고, 필요하면 도메인 컴포넌트로 감싼다.\n\n날짜는 예외 없이 lib/date.ts의 formatKST를 거친다. Intl.DateTimeFormat을 직접 쓰면 Node와 브라우저의 오전/오후 표기가 달라 하이드레이션 불일치가 난다 (Task 002에서 실측 확인).\n\nCopyButton의 폴백은 선택이 아니다. 카톡 인앱 브라우저에서 Clipboard API가 막히면 이 제품의 핵심 흐름(공유 문구 복사)이 통째로 죽는다.\n\nDB를 건드리지 않는다. apply_migration 호출 금지.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-08-05T00:45:04.051Z",
+      "updatedAt": "2026-08-05T00:45:04.051Z",
+      "relatedFiles": [
+        {
+          "path": "app/globals.css",
+          "type": "TO_MODIFY",
+          "description": "테마 토큰 복구. 현재 CSS 리셋만 있고 shadcn 변수가 전무하다"
+        },
+        {
+          "path": "app/layout.tsx",
+          "type": "TO_MODIFY",
+          "description": "sonner Toaster 배치"
+        },
+        {
+          "path": "components/ui/button.tsx",
+          "type": "REFERENCE",
+          "description": "어떤 토큰을 참조하는지 확인용 (bg-primary, text-primary-foreground 등)"
+        },
+        {
+          "path": "types/database.ts",
+          "type": "REFERENCE",
+          "description": "EventSummary, RsvpStatus, EventStatus 등 컴포넌트 prop 타입"
+        },
+        {
+          "path": "lib/date.ts",
+          "type": "DEPENDENCY",
+          "description": "formatKST. 모든 날짜 출력이 여기를 거친다"
+        },
+        {
+          "path": "lib/fixtures.ts",
+          "type": "DEPENDENCY",
+          "description": "countGoing. 인원 계산 로직"
+        },
+        {
+          "path": "components/event-card.tsx",
+          "type": "CREATE",
+          "description": "이벤트 카드"
+        },
+        {
+          "path": "components/rsvp-badge.tsx",
+          "type": "CREATE",
+          "description": "참석 상태 배지"
+        },
+        {
+          "path": "components/attendance-summary.tsx",
+          "type": "CREATE",
+          "description": "인원 요약 블록"
+        },
+        {
+          "path": "components/empty-state.tsx",
+          "type": "CREATE",
+          "description": "빈 상태"
+        },
+        {
+          "path": "components/copy-button.tsx",
+          "type": "CREATE",
+          "description": "복사 버튼. Clipboard API 폴백 포함"
+        },
+        {
+          "path": "components/status-banner.tsx",
+          "type": "CREATE",
+          "description": "마감/취소 배너"
+        }
+      ],
+      "implementationGuide": "1. app/globals.css 테마 토큰 복구 (첫 단계, 나머지가 여기 의존한다)\n- 기존 @charset, @import 'tailwindcss', @layer base의 CSS 리셋은 그대로 둔다\n- @custom-variant dark (&:is(.dark *)) 추가 — next-themes가 html에 class를 붙이는 방식과 맞춘다\n- :root와 .dark에 shadcn 표준 토큰 정의 (neutral 베이스, oklch): background, foreground, card, card-foreground, popover, popover-foreground, primary, primary-foreground, secondary, secondary-foreground, muted, muted-foreground, accent, accent-foreground, destructive, destructive-foreground, border, input, ring, radius\n- @theme inline 블록으로 CSS 변수를 Tailwind 유틸리티에 노출: --color-background: var(--background) 형태\n- 검증: 브라우저에서 getComputedStyle(document.documentElement).getPropertyValue('--background')가 값을 반환하고, Login 버튼 배경이 투명이 아니어야 한다\n\n2. shadcn 컴포넌트 6개 설치\nnpx shadcn@latest add tabs dialog select textarea switch sonner\n- label, badge, button, card, checkbox, dropdown-menu, input은 이미 설치되어 있다\n- components/ui/** 는 CLI 생성물이므로 설치 후 직접 수정하지 않는다\n\n3. 도메인 공통 컴포넌트 (components/ 루트에 배치)\n// components/event-card.tsx — 대시보드(Task 005)와 목록 재사용\nEventCard({ event: EventSummary, href: string })\n  제목, formatKST(event.starts_at, 'short'), location, going_count/capacity\n  status가 open이 아니면 배지 노출\n\n// components/rsvp-badge.tsx — 관리 페이지와 초대 페이지 양쪽\nRsvpBadge({ status: RsvpStatus })\n  going 참석 / not_going 불참 / maybe 미정. Badge variant로 구분\n\n// components/attendance-summary.tsx — 관리 페이지와 초대 페이지 양쪽\nAttendanceSummary({ goingCount: number, capacity: number | null })\n  capacity가 null이면 '무제한'. countGoing()으로 계산한 값을 받는다\n\n// components/empty-state.tsx\nEmptyState({ title, description, action? })\n\n// components/copy-button.tsx — 초대 링크와 카톡 공유 문구 양쪽\nCopyButton({ text: string, label?: string })\n  'use client'. navigator.clipboard가 없거나 실패하면 textarea+execCommand 폴백\n  카톡 인앱 브라우저에서 Clipboard API가 막힐 수 있으므로 폴백이 필수다\n  복사 성공은 sonner toast로 알린다\n\n// components/status-banner.tsx — 마감/취소 상태 배너 (초대 페이지, 관리 페이지)\nStatusBanner({ status: EventStatus })\n  open이면 null 반환\n\n4. sonner Toaster를 app/layout.tsx의 ThemeProvider 안에 배치\n\n5. 모바일 우선 반응형 기준 확립\n- 기본 스타일이 모바일, sm: 이상에서 확장하는 방향\n- 참여자 트래픽은 사실상 전량 모바일이고 대부분 카톡 인앱 브라우저다",
+      "verificationCriteria": "1. 브라우저에서 --background, --foreground, --primary, --card, --border 토큰이 모두 값을 반환한다\n2. Login 버튼 배경이 rgba(0,0,0,0)이 아니다\n3. 테마 스위처로 다크 모드 전환 시 html class가 dark로 바뀌고 배경·전경색이 실제로 반전된다\n4. npm run build 통과, npx tsc --noEmit 통과\n5. npm run lint가 기존 미해결 1건(components/theme-switcher.tsx:21)만 남긴다\n6. CopyButton: navigator.clipboard를 임시로 지운 상태에서도 복사가 동작한다\n7. 공통 컴포넌트 중 최소 2개가 서로 다른 두 페이지에서 import된다\n8. 콘솔에 하이드레이션 경고가 없다",
+      "analysisResult": "Phase 2: UI/UX 완성 (더미 데이터 활용). docs/ROADMAP.md의 Task 004-006을 코드베이스 실측 후 등록한다.\n\n실측으로 확인된 사실:\n- app/globals.css에 shadcn 테마 토큰이 통째로 없다. @theme 블록도 :root/.dark 변수도 없고 CSS 리셋(meyerweb, 62줄)만 있다. components.json은 cssVariables:true인데 --background, --foreground, --primary 등이 미정의다. 브라우저 실측 결과 Login 버튼 배경이 rgba(0,0,0,0) 투명이고 다크 모드도 동작할 수 없다. Phase 2 전체가 이 위에 세워지므로 Task 004의 첫 단계로 복구하기로 확정했다.\n- shadcn 설치됨: badge, button, card, checkbox, dropdown-menu, input, label (7개). 미설치: tabs, dialog, select, textarea, switch, sonner\n- Task 002 산출물이 전부 준비되어 있다. types/database.ts(Event, Participant, Announcement, Settlement, SettlementShare, EventView, EventPreview, EventSummary, ParticipantPublic, EventStatus, RsvpStatus), lib/date.ts(formatKST, toISOFromKSTInput, toKSTInputValue), lib/url.ts(isSafeUrl, safeHref), lib/fixtures.ts(makeEvent, makeParticipant, makeAnnouncement, makeSettlement, makeSettlementShare, sampleParticipants, countGoing, sampleDashboard)\n- 자리표시자 페이지 4개는 14-16줄짜리 껍데기다. app/dashboard, app/events/new, app/events/[id]/manage, app/e/[token]\n- 헤더·푸터는 app/layout.tsx에 한 번만 배치되어 있다. 개별 페이지에서 다시 그리면 안 된다\n\n확정된 결정:\n1. 테마 토큰 복구를 Task 004의 첫 단계로 넣는다 (별도 작업으로 분리하지 않음)\n2. 더미 데이터는 페이지에서 lib/fixtures.ts를 직접 호출한다. 조회 함수 계층을 만들지 않는다 — Task 008에서 호출 한 줄만 교체되어 경계가 명확하다\n\n저장소 제약: Next.js 16 App Router, 미들웨어는 proxy.ts, cacheComponents:true(동적 데이터를 읽는 컴포넌트는 반드시 Suspense 안에), getClaims() 사용, Supabase 클라이언트를 모듈 최상위에 담지 않음, Server Action 신규 도입 금지, Tailwind v4(tailwind.config 없음, CSS-first), components/ui/**는 shadcn CLI 생성물이라 직접 수정하지 않음, Prettier 탭 들여쓰기 폭2 작은따옴표 arrowParens avoid, import는 @/ 별칭, 주석과 문서는 한국어. 모든 날짜 출력은 예외 없이 lib/date.ts의 formatKST를 거친다. location_url을 href에 넣기 전 safeHref를 거친다(R18).\n\nPhase 2는 DB를 건드리지 않는다. apply_migration 호출 금지. 마이그레이션은 Task 007이다."
+    },
+    {
+      "id": "07c009a8-46e1-4c6b-b84c-4479a7271a17",
+      "name": "Task 005: 주최자 화면 UI 완성",
+      "description": "대시보드, 이벤트 생성 폼, 이벤트 관리 페이지를 더미 데이터로 완성한다. 현재 세 페이지 모두 14-16줄짜리 자리표시자다.\n\n더미 데이터는 lib/fixtures.ts를 페이지에서 직접 호출한다. 조회 함수 계층을 만들지 않는다 — Task 008에서 Supabase 쿼리로 바꿀 때 호출 한 줄만 교체되어 경계가 명확하다.\n\n폼은 Server Action을 쓰지 않는다. 이 저장소는 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 방식이고 인증 폼이 그 선례다.\n\n수락 기준: 더미 상태로 랜딩 → 대시보드 → 생성 → 관리 전 구간을 클릭만으로 완주할 수 있다.",
+      "notes": "Server Action을 새로 도입하지 않는다. 폼은 클라이언트 컴포넌트에서 처리한다.\n\nparams를 읽지 않는 이유: cacheComponents:true 환경에서 params는 동적 API라 읽는 순간 Suspense 경계가 필요해진다. 더미 단계에서 불필요한 복잡도다. Task 008에서 실제 데이터를 붙일 때 함께 처리한다.\n\nnote(한마디)는 주최자 전용이다(R10). 이 페이지에서만 렌더하고 초대 페이지에는 절대 넣지 않는다.\n\n모든 날짜는 formatKST를 거친다. location_url은 safeHref를 거친다.\n\nDB를 건드리지 않는다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "0ff74c63-94d4-42f1-a8a1-72e55d032c86"
+        }
+      ],
+      "createdAt": "2026-08-05T00:45:04.051Z",
+      "updatedAt": "2026-08-05T00:45:04.051Z",
+      "relatedFiles": [
+        {
+          "path": "app/dashboard/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "자리표시자 14줄. 주최/참여 탭과 목록으로 교체"
+        },
+        {
+          "path": "app/events/new/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "자리표시자 14줄. 생성 폼으로 교체"
+        },
+        {
+          "path": "app/events/[id]/manage/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "자리표시자 16줄. 관리 화면으로 교체"
+        },
+        {
+          "path": "components/event-form.tsx",
+          "type": "CREATE",
+          "description": "이벤트 생성 폼 (클라이언트 컴포넌트)"
+        },
+        {
+          "path": "lib/fixtures.ts",
+          "type": "DEPENDENCY",
+          "description": "sampleDashboard, makeEvent, sampleParticipants, makeAnnouncement, makeSettlement, countGoing"
+        },
+        {
+          "path": "lib/schemas.ts",
+          "type": "DEPENDENCY",
+          "description": "eventCreateSchema로 폼 검증"
+        },
+        {
+          "path": "lib/date.ts",
+          "type": "DEPENDENCY",
+          "description": "formatKST, toISOFromKSTInput, toKSTInputValue"
+        },
+        {
+          "path": "lib/url.ts",
+          "type": "DEPENDENCY",
+          "description": "safeHref — location_url 렌더 전 필수"
+        },
+        {
+          "path": "components/login-form.tsx",
+          "type": "REFERENCE",
+          "description": "폼 패턴 선례. useState 에러 표시, Server Action 미사용"
+        }
+      ],
+      "implementationGuide": "1. app/dashboard/page.tsx\n- sampleDashboard()를 직접 호출해 EventSummary[] 렌더\n- shadcn tabs로 주최/참여 탭. 참여 탭도 같은 픽스처를 재사용한다\n- 다가오는 모임과 지난 모임을 starts_at 기준으로 분리. 기준 시각은 lib/fixtures.ts의 BASE_MS와 어긋나지 않게 주의\n- 각 항목은 Task 004의 EventCard 사용. href는 /events/[id]/manage\n- 목록이 비면 EmptyState\n- [새 이벤트] 버튼 → /events/new\n\n2. app/events/new/page.tsx\n- 클라이언트 컴포넌트로 폼 분리 (components/event-form.tsx)\n- 입력: 제목, 일시(datetime-local), 장소, 지도 링크, 안내 문구(textarea), 정원, 응답 마감(datetime-local)\n- 일시 옆에 '한국 시간 기준' 명시\n- 검증은 lib/schemas.ts의 eventCreateSchema.safeParse. 에러는 필드별로 표시\n- datetime-local 값은 toISOFromKSTInput으로 변환해야 하지만 Phase 2에서는 저장하지 않으므로 변환 결과를 콘솔이나 미리보기로만 확인\n- 제출 시 생성 완료 화면으로 전환 (같은 페이지 내 상태 전환 또는 /events/[id]/manage로 이동)\n- 생성 완료 화면: 초대 링크와 카톡 공유 문구를 CopyButton과 함께 표시\n\n3. app/events/[id]/manage/page.tsx\n- params를 읽는 순간 동적이 되어 Suspense 경계가 필요해진다. Phase 2에서는 params를 읽지 않고 makeEvent()로 고정 이벤트를 렌더한다. 실제 연동은 Task 008\n- 참여자 목록: sampleParticipants()를 status별로 그룹핑. RsvpBadge 사용\n- AttendanceSummary로 동반 포함 총원과 정원 대비 표시 (countGoing 사용)\n- 한마디(note) 확인 영역 — 주최자에게만 보이는 영역임을 UI에서도 드러낸다\n- 공지: makeAnnouncement()로 목록, textarea로 작성 폼\n- 명단 공개 토글 (switch), 마감/취소 전환 (select 또는 버튼), 복제 버튼\n- 정산 섹션: makeSettlement(), makeSettlementShare()로 총액·분담금·입금 체크(checkbox) 렌더\n- location_url을 링크로 걸 때 반드시 safeHref를 거친다 (R18)\n\n4. 반응형: 모바일 기본, sm: 이상에서 2단 레이아웃 등으로 확장\n\n5. 헤더·푸터를 페이지에서 다시 그리지 않는다. app/layout.tsx가 이미 배치한다",
+      "verificationCriteria": "1. npm run build 통과 (cacheComponents 위반 없음), npx tsc --noEmit 통과\n2. Playwright로 랜딩 → 대시보드 → [새 이벤트] → 생성 → 관리 전 구간 클릭 완주\n3. 대시보드 주최/참여 탭 전환이 동작하고 각 탭에 항목이 렌더된다\n4. 생성 폼에서 제목을 비우고 제출하면 필드 에러가 표시된다\n5. 생성 폼에서 정원 501, 동반 인원 11 같은 경계 초과 값이 거부된다\n6. 관리 페이지에 참석/불참/미정 그룹이 모두 렌더되고 총원이 동반 인원을 합산한 값(픽스처 기준 6)으로 표시된다\n7. 모바일 뷰포트(375px)에서 가로 스크롤이 발생하지 않는다\n8. 콘솔에 하이드레이션 경고와 에러가 없다\n9. npm run lint가 기존 미해결 1건만 남긴다",
+      "analysisResult": "Phase 2: UI/UX 완성 (더미 데이터 활용). docs/ROADMAP.md의 Task 004-006을 코드베이스 실측 후 등록한다.\n\n실측으로 확인된 사실:\n- app/globals.css에 shadcn 테마 토큰이 통째로 없다. @theme 블록도 :root/.dark 변수도 없고 CSS 리셋(meyerweb, 62줄)만 있다. components.json은 cssVariables:true인데 --background, --foreground, --primary 등이 미정의다. 브라우저 실측 결과 Login 버튼 배경이 rgba(0,0,0,0) 투명이고 다크 모드도 동작할 수 없다. Phase 2 전체가 이 위에 세워지므로 Task 004의 첫 단계로 복구하기로 확정했다.\n- shadcn 설치됨: badge, button, card, checkbox, dropdown-menu, input, label (7개). 미설치: tabs, dialog, select, textarea, switch, sonner\n- Task 002 산출물이 전부 준비되어 있다. types/database.ts(Event, Participant, Announcement, Settlement, SettlementShare, EventView, EventPreview, EventSummary, ParticipantPublic, EventStatus, RsvpStatus), lib/date.ts(formatKST, toISOFromKSTInput, toKSTInputValue), lib/url.ts(isSafeUrl, safeHref), lib/fixtures.ts(makeEvent, makeParticipant, makeAnnouncement, makeSettlement, makeSettlementShare, sampleParticipants, countGoing, sampleDashboard)\n- 자리표시자 페이지 4개는 14-16줄짜리 껍데기다. app/dashboard, app/events/new, app/events/[id]/manage, app/e/[token]\n- 헤더·푸터는 app/layout.tsx에 한 번만 배치되어 있다. 개별 페이지에서 다시 그리면 안 된다\n\n확정된 결정:\n1. 테마 토큰 복구를 Task 004의 첫 단계로 넣는다 (별도 작업으로 분리하지 않음)\n2. 더미 데이터는 페이지에서 lib/fixtures.ts를 직접 호출한다. 조회 함수 계층을 만들지 않는다 — Task 008에서 호출 한 줄만 교체되어 경계가 명확하다\n\n저장소 제약: Next.js 16 App Router, 미들웨어는 proxy.ts, cacheComponents:true(동적 데이터를 읽는 컴포넌트는 반드시 Suspense 안에), getClaims() 사용, Supabase 클라이언트를 모듈 최상위에 담지 않음, Server Action 신규 도입 금지, Tailwind v4(tailwind.config 없음, CSS-first), components/ui/**는 shadcn CLI 생성물이라 직접 수정하지 않음, Prettier 탭 들여쓰기 폭2 작은따옴표 arrowParens avoid, import는 @/ 별칭, 주석과 문서는 한국어. 모든 날짜 출력은 예외 없이 lib/date.ts의 formatKST를 거친다. location_url을 href에 넣기 전 safeHref를 거친다(R18).\n\nPhase 2는 DB를 건드리지 않는다. apply_migration 호출 금지. 마이그레이션은 Task 007이다."
+    },
+    {
+      "id": "3908049d-9304-4c70-af82-73304dc29178",
+      "name": "Task 006: 초대 페이지 UI 완성 (모바일 우선)",
+      "description": "/e/[token] 초대 페이지를 더미 데이터로 완성한다. 이 제품에서 트래픽이 가장 몰리는 화면이고, 참여자는 사실상 전량 모바일·카톡 인앱 브라우저로 진입한다.\n\n가장 중요한 제약은 정적 셸과 동적 영역의 분리다. cacheComponents:true 환경에서 세션을 읽는 컴포넌트가 Suspense 밖에 있으면 빌드가 실패하고, 경계를 너무 넓게 잡으면 이 페이지의 캐시 이점이 사라진다. components/site-header.tsx가 AuthButton 하나만 감싸는 것이 참고 패턴이다.\n\n이 경로는 proxy 인증 예외라 비로그인으로 열린다. 비로그인 상태에서 이벤트 정보는 보이고 응답은 로그인을 유도해야 한다.\n\n수락 기준: 모바일 뷰포트에서 스크롤 한 화면 안에 정보 확인과 응답이 가능하다.",
+      "notes": "Suspense 경계를 최소 단위로 둔다. 페이지 전체나 큰 섹션을 감싸면 정적 셸 범위가 줄어 이 페이지의 캐시 이점이 사라진다. components/site-header.tsx가 AuthButton 하나만 감싸는 것이 이 저장소의 참고 패턴이다.\n\nnote(한마디)를 이 페이지에 렌더하면 R10 위반이다. 타입을 ParticipantPublic으로 받으면 실수가 컴파일 에러가 된다.\n\nlocation_url은 반드시 safeHref를 거친다. javascript: 스킴이 실행되면 링크를 연 참여자 전원에게 스크립트가 실행된다(R18).\n\n로그인 유도는 SocialAuthButtons를 재사용한다. 새로 만들지 않는다.\n\nDB를 건드리지 않는다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "0ff74c63-94d4-42f1-a8a1-72e55d032c86"
+        }
+      ],
+      "createdAt": "2026-08-05T00:45:04.051Z",
+      "updatedAt": "2026-08-05T00:45:04.051Z",
+      "relatedFiles": [
+        {
+          "path": "app/e/[token]/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "자리표시자 16줄. 초대 페이지로 교체"
+        },
+        {
+          "path": "components/rsvp-form.tsx",
+          "type": "CREATE",
+          "description": "응답 폼 (클라이언트 컴포넌트)"
+        },
+        {
+          "path": "components/site-header.tsx",
+          "type": "REFERENCE",
+          "description": "Suspense 최소 경계 패턴의 참고. AuthButton 하나만 감싼다"
+        },
+        {
+          "path": "components/social-auth-buttons.tsx",
+          "type": "REFERENCE",
+          "description": "비로그인 유도 블록에 재사용. next prop으로 복귀 경로 지정"
+        },
+        {
+          "path": "types/database.ts",
+          "type": "DEPENDENCY",
+          "description": "ParticipantPublic — note가 빠진 타입. 명단 렌더에 사용"
+        },
+        {
+          "path": "lib/schemas.ts",
+          "type": "DEPENDENCY",
+          "description": "rsvpSchema로 응답 폼 검증"
+        },
+        {
+          "path": "lib/date.ts",
+          "type": "DEPENDENCY",
+          "description": "formatKST"
+        },
+        {
+          "path": "lib/url.ts",
+          "type": "DEPENDENCY",
+          "description": "safeHref"
+        },
+        {
+          "path": "lib/fixtures.ts",
+          "type": "DEPENDENCY",
+          "description": "makeEvent, sampleParticipants, makeAnnouncement, makeSettlementShare"
+        }
+      ],
+      "implementationGuide": "1. 정적 셸 (세션을 읽지 않는다)\n- 이벤트 정보 헤더: 제목, formatKST(starts_at, 'full'), location, safeHref(location_url) 링크, AttendanceSummary\n- 누적 공지 목록 (makeAnnouncement)\n- StatusBanner로 마감·취소 표시\n- 개인정보 수집 안내 문구와 /privacy 링크\n- params(token)를 읽지 않는다. 읽으면 동적이 되어 셸 전체가 캐시 대상에서 빠진다. Task 009에서 실제 연동 시 함께 처리한다\n\n2. 동적 영역 (각각 Suspense로 감싼다 — 최소 단위로)\n- 응답 폼 (components/rsvp-form.tsx, 클라이언트 컴포넌트): 참석/불참/미정 선택, 동반 인원, 한마디. rsvpSchema로 검증\n- 기존 응답이 있으면 수정 모드로 표시 (더미로 두 상태 모두 확인 가능하게)\n- 비로그인 유도 블록: SocialAuthButtons를 next={`/e/${token}`} 형태로 재사용. 카카오 우선 배치는 이미 그 컴포넌트가 보장한다\n- 참석자 명단 영역 (show_names가 true일 때만)\n- 본인 정산 몫·입금 여부 카드\n\n3. note는 절대 렌더하지 않는다 (R10 — 주최자 전용). 타입 수준에서도 ParticipantPublic을 쓰면 컴파일러가 막아준다\n\n4. 모바일 우선\n- 375px 기준으로 먼저 맞추고 sm: 이상에서 확장\n- 정보 확인과 [응답하기] 도달까지 스크롤을 최소화한다\n- 터치 타겟 최소 44px\n\n5. 헤더·푸터를 다시 그리지 않는다",
+      "verificationCriteria": "1. npm run build 통과. 빌드 출력에서 /e/[token]이 ◐(Partial Prerender)로 표시된다 — 정적 셸이 살아 있다는 뜻이다\n2. npx tsc --noEmit 통과\n3. 375px 뷰포트에서 가로 스크롤이 없고, 이벤트 정보와 응답 진입점이 한 화면 안에 들어온다\n4. 페이지 소스에 note(한마디) 문자열이 등장하지 않는다\n5. 응답 폼에서 동반 인원 11, 한마디 201자가 거부된다\n6. 비로그인 상태에서 이벤트 정보가 보이고 응답 영역에는 로그인 유도가 표시된다\n7. 마감·취소 상태에서 StatusBanner가 노출되고 응답이 차단된다\n8. 콘솔에 하이드레이션 경고와 에러가 없다\n9. npm run lint가 기존 미해결 1건만 남긴다",
+      "analysisResult": "Phase 2: UI/UX 완성 (더미 데이터 활용). docs/ROADMAP.md의 Task 004-006을 코드베이스 실측 후 등록한다.\n\n실측으로 확인된 사실:\n- app/globals.css에 shadcn 테마 토큰이 통째로 없다. @theme 블록도 :root/.dark 변수도 없고 CSS 리셋(meyerweb, 62줄)만 있다. components.json은 cssVariables:true인데 --background, --foreground, --primary 등이 미정의다. 브라우저 실측 결과 Login 버튼 배경이 rgba(0,0,0,0) 투명이고 다크 모드도 동작할 수 없다. Phase 2 전체가 이 위에 세워지므로 Task 004의 첫 단계로 복구하기로 확정했다.\n- shadcn 설치됨: badge, button, card, checkbox, dropdown-menu, input, label (7개). 미설치: tabs, dialog, select, textarea, switch, sonner\n- Task 002 산출물이 전부 준비되어 있다. types/database.ts(Event, Participant, Announcement, Settlement, SettlementShare, EventView, EventPreview, EventSummary, ParticipantPublic, EventStatus, RsvpStatus), lib/date.ts(formatKST, toISOFromKSTInput, toKSTInputValue), lib/url.ts(isSafeUrl, safeHref), lib/fixtures.ts(makeEvent, makeParticipant, makeAnnouncement, makeSettlement, makeSettlementShare, sampleParticipants, countGoing, sampleDashboard)\n- 자리표시자 페이지 4개는 14-16줄짜리 껍데기다. app/dashboard, app/events/new, app/events/[id]/manage, app/e/[token]\n- 헤더·푸터는 app/layout.tsx에 한 번만 배치되어 있다. 개별 페이지에서 다시 그리면 안 된다\n\n확정된 결정:\n1. 테마 토큰 복구를 Task 004의 첫 단계로 넣는다 (별도 작업으로 분리하지 않음)\n2. 더미 데이터는 페이지에서 lib/fixtures.ts를 직접 호출한다. 조회 함수 계층을 만들지 않는다 — Task 008에서 호출 한 줄만 교체되어 경계가 명확하다\n\n저장소 제약: Next.js 16 App Router, 미들웨어는 proxy.ts, cacheComponents:true(동적 데이터를 읽는 컴포넌트는 반드시 Suspense 안에), getClaims() 사용, Supabase 클라이언트를 모듈 최상위에 담지 않음, Server Action 신규 도입 금지, Tailwind v4(tailwind.config 없음, CSS-first), components/ui/**는 shadcn CLI 생성물이라 직접 수정하지 않음, Prettier 탭 들여쓰기 폭2 작은따옴표 arrowParens avoid, import는 @/ 별칭, 주석과 문서는 한국어. 모든 날짜 출력은 예외 없이 lib/date.ts의 formatKST를 거친다. location_url을 href에 넣기 전 safeHref를 거친다(R18).\n\nPhase 2는 DB를 건드리지 않는다. apply_migration 호출 금지. 마이그레이션은 Task 007이다."
     }
   ]
 }
