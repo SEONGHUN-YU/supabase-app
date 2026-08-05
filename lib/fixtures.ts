@@ -21,6 +21,18 @@ import type {
 /** 기준 시각. KST 2026년 9월 12일 (토) 오후 7:00 */
 const BASE_MS = Date.parse('2026-09-12T10:00:00Z');
 
+/**
+ * 더미 화면에서 "지금"으로 취급할 시각.
+ *
+ * `Date.now()`를 쓰지 않는 이유가 두 가지다. (1) `cacheComponents` 환경에서
+ * 프리렌더 중 현재 시각을 읽으면 결과가 결정론적이지 않다. (2) 서버와
+ * 클라이언트가 다른 값을 보면 하이드레이션이 어긋난다.
+ *
+ * Task 008에서는 이 상수가 사라진다. 다가오는/지난 구분은 UI가 아니라
+ * `where starts_at >= now()` 같은 DB 쿼리가 담당하게 되기 때문이다.
+ */
+export const FIXTURE_NOW = new Date(BASE_MS).toISOString();
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 시드에서 UUID 모양 문자열을 만든다. 디버깅할 때 눈으로 구분하기 쉽다. */
@@ -149,6 +161,33 @@ export function sampleParticipants(): Participant[] {
 			guest_count: 0,
 		}),
 	];
+}
+
+/**
+ * 픽스처 사용자의 표시 이름.
+ * 실제로는 `participants ⨝ profiles`로 얻는 값이라 Task 009에서 사라진다.
+ */
+const FIXTURE_PROFILE_NAMES: Record<string, string> = {
+	[fakeUuid(901)]: '박수영',
+	[fakeUuid(902)]: '이한강',
+	[fakeUuid(903)]: '최미정',
+	[fakeUuid(904)]: '정불참',
+};
+
+/**
+ * 참여자 표시 이름 해석 순서.
+ *
+ * 1. `display_name` — 주최자가 계정 없는 사람을 대리 등록한 경우
+ * 2. `profiles.full_name` — 소셜 로그인에서 받은 닉네임
+ * 3. `'이름 없음'` — 둘 다 없을 때. 카카오 닉네임 동의를 거부한 계정에서
+ *    실제로 발생할 수 있으므로 최종 폴백이 필요하다
+ */
+export function participantDisplayName(participant: Participant): string {
+	if (participant.display_name) return participant.display_name;
+	if (participant.user_id) {
+		return FIXTURE_PROFILE_NAMES[participant.user_id] ?? '이름 없음';
+	}
+	return '이름 없음';
 }
 
 /** 동반 인원을 합산한 참석 총원. `get_event_preview`의 going_count와 같은 계산이다. */

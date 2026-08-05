@@ -87,7 +87,7 @@
 
 ### Phase 2: UI/UX 완성 (더미 데이터 활용)
 
-- **Task 004: 공통 컴포넌트 라이브러리 구현**
+- **Task 004: 공통 컴포넌트 라이브러리 구현** ✅
   - **선행: `app/globals.css`의 shadcn 테마 토큰 복구** — 현재 CSS 리셋(62줄)만 있고 `--background`·`--foreground`·`--primary` 등이 **전부 정의되어 있지 않다**. 브라우저 실측 결과 Login 버튼 배경이 `rgba(0,0,0,0)` 투명으로 계산되고 다크 모드도 동작할 수 없다. `components/ui/**`가 전부 이 토큰을 참조하므로 Task 005·006이 색 없는 화면 위에 쌓인다. `@custom-variant dark` + `:root`/`.dark` 변수 + `@theme inline` 노출을 함께 복구한다
   - 필요한 shadcn/ui 컴포넌트 추가 설치 (`tabs`, `dialog`, `select`, `textarea`, `switch`, `sonner`) — `badge`·`button`·`card`·`checkbox`·`dropdown-menu`·`input`·`label` 7개는 이미 설치되어 있다
   - 도메인 공통 컴포넌트 구현: 이벤트 카드, 참석 상태 배지, 인원 요약 블록, 빈 상태, 복사 버튼
