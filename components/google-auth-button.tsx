@@ -70,10 +70,11 @@ export function GoogleAuthButton({
 	return (
 		<div className={cn('flex flex-col gap-2', className)} {...props}>
 			{error && <p className="text-sm text-red-500">{error}</p>}
+			{/* h-11(44px)은 카카오 버튼과 같은 이유다 — 모바일 최소 터치 타겟 */}
 			<Button
 				type="button"
 				variant="outline"
-				className="w-full"
+				className="h-11 w-full"
 				onClick={handleGoogleLogin}
 				disabled={isLoading}
 			>

@@ -61,10 +61,13 @@ export function KakaoAuthButton({
 		<div className={cn('flex flex-col gap-2', className)} {...props}>
 			{error && <p className="text-sm text-red-500">{error}</p>}
 			{/* 카카오 브랜드 가이드: 배경 #FEE500 + 검정 텍스트 고정.
-			    테마 토큰을 쓰면 다크 모드에서 브랜드 색이 깨진다. */}
+			    테마 토큰을 쓰면 다크 모드에서 브랜드 색이 깨진다.
+			    h-11(44px)은 shadcn 기본 h-9(36px)를 덮어쓴 것이다. 이 버튼은
+			    초대 페이지의 주 진입점이고 사용자는 사실상 전량 모바일이라
+			    최소 터치 타겟을 지켜야 한다. */}
 			<Button
 				type="button"
-				className="w-full bg-[#FEE500] text-black hover:bg-[#FDD835]"
+				className="h-11 w-full bg-[#FEE500] text-black hover:bg-[#FDD835]"
 				onClick={handleKakaoLogin}
 				disabled={isLoading}
 			>
