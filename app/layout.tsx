@@ -3,6 +3,7 @@ import { Geist } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 
 const defaultUrl = process.env.VERCEL_URL
@@ -41,6 +42,8 @@ export default function RootLayout({
 						<div className="flex-1 w-full max-w-5xl p-5">{children}</div>
 						<SiteFooter />
 					</div>
+					{/* 복사 성공·실패 알림. ThemeProvider 안에 둬야 다크 모드를 따라간다. */}
+					<Toaster position="top-center" />
 				</ThemeProvider>
 			</body>
 		</html>

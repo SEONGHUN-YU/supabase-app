@@ -1,25 +1,174 @@
 @charset 'utf-8';
 
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/* next-themes가 <html>에 class를 붙이는 방식과 맞춘다.
+   Tailwind v4는 설정 파일이 없으므로 다크 모드도 여기서 선언한다. */
+@custom-variant dark (&:is(.dark *));
+
+/* shadcn/ui 테마 토큰 (new-york, neutral 베이스).
+   components/ui/** 가 전부 이 변수를 참조하므로 지우면 모든 색이 사라진다. */
+:root {
+	--radius: 0.625rem;
+
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.145 0 0);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.145 0 0);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.145 0 0);
+	--primary: oklch(0.205 0 0);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.97 0 0);
+	--secondary-foreground: oklch(0.205 0 0);
+	--muted: oklch(0.97 0 0);
+	--muted-foreground: oklch(0.556 0 0);
+	--accent: oklch(0.97 0 0);
+	--accent-foreground: oklch(0.205 0 0);
+	--destructive: oklch(0.577 0.245 27.325);
+	--destructive-foreground: oklch(0.985 0 0);
+	--border: oklch(0.922 0 0);
+	--input: oklch(0.922 0 0);
+	--ring: oklch(0.708 0 0);
+}
+
+.dark {
+	--background: oklch(0.145 0 0);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.205 0 0);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.205 0 0);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.922 0 0);
+	--primary-foreground: oklch(0.205 0 0);
+	--secondary: oklch(0.269 0 0);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.269 0 0);
+	--muted-foreground: oklch(0.708 0 0);
+	--accent: oklch(0.269 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.704 0.191 22.216);
+	--destructive-foreground: oklch(0.985 0 0);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.556 0 0);
+}
+
+/* 위 CSS 변수를 Tailwind 유틸리티(bg-background, text-foreground 등)로 노출한다.
+   이 블록이 없으면 변수는 정의돼 있어도 클래스가 아무 색도 내지 않는다. */
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+}
 
 @layer base {
 	/* http://meyerweb.com/eric/tools/css/reset/ 
 	v2.0 | 20110126
 	License: none (public domain)
 	*/
-	html, body, div, span, applet, object, iframe,
-	h1, h2, h3, h4, h5, h6, p, blockquote, pre,
-	a, abbr, acronym, address, big, cite, code,
-	del, dfn, em, img, ins, kbd, q, s, samp,
-	small, strike, strong, sub, sup, tt, var,
-	b, u, i, center,
-	dl, dt, dd, ol, ul, li,
-	fieldset, form, label, legend,
-	table, caption, tbody, tfoot, thead, tr, th, td,
-	article, aside, canvas, details, embed, 
-	figure, figcaption, footer, header, hgroup, 
-	menu, nav, output, ruby, section, summary,
-	time, mark, audio, video {
+	html,
+	body,
+	div,
+	span,
+	applet,
+	object,
+	iframe,
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6,
+	p,
+	blockquote,
+	pre,
+	a,
+	abbr,
+	acronym,
+	address,
+	big,
+	cite,
+	code,
+	del,
+	dfn,
+	em,
+	img,
+	ins,
+	kbd,
+	q,
+	s,
+	samp,
+	small,
+	strike,
+	strong,
+	sub,
+	sup,
+	tt,
+	var,
+	b,
+	u,
+	i,
+	center,
+	dl,
+	dt,
+	dd,
+	ol,
+	ul,
+	li,
+	fieldset,
+	form,
+	label,
+	legend,
+	table,
+	caption,
+	tbody,
+	tfoot,
+	thead,
+	tr,
+	th,
+	td,
+	article,
+	aside,
+	canvas,
+	details,
+	embed,
+	figure,
+	figcaption,
+	footer,
+	header,
+	hgroup,
+	menu,
+	nav,
+	output,
+	ruby,
+	section,
+	summary,
+	time,
+	mark,
+	audio,
+	video {
 		margin: 0;
 		padding: 0;
 		border: 0;
@@ -27,21 +176,34 @@
 		font: inherit;
 		vertical-align: baseline;
 	}
-	article, aside, details, figcaption, figure, 
-	footer, header, hgroup, menu, nav, section {
+	article,
+	aside,
+	details,
+	figcaption,
+	figure,
+	footer,
+	header,
+	hgroup,
+	menu,
+	nav,
+	section {
 		display: block;
 	}
 	body {
 		line-height: 1;
 	}
-	ol, ul {
+	ol,
+	ul {
 		list-style: none;
 	}
-	blockquote, q {
+	blockquote,
+	q {
 		quotes: none;
 	}
-	blockquote:before, blockquote:after,
-	q:before, q:after {
+	blockquote:before,
+	blockquote:after,
+	q:before,
+	q:after {
 		content: '';
 		content: none;
 	}
@@ -59,5 +221,27 @@
 		border: 0;
 		background: transparent;
 		cursor: pointer;
+	}
+
+	/* 리셋이 색을 지정하지 않으므로 테마 토큰을 여기서 적용한다.
+	   이게 없으면 body 배경이 투명으로 남아 다크 모드가 전환돼도 화면이 그대로다. */
+	body {
+		background-color: var(--background);
+		color: var(--foreground);
+		/* 리셋의 line-height: 1 은 본문 가독성이 떨어져 되돌린다 */
+		line-height: 1.5;
+	}
+}
+
+/* Tailwind v4는 border-color 기본값이 currentColor다. 그대로 두면 `border`
+   유틸리티가 글자색을 따라가 카드 테두리가 검게 나온다.
+   base 레이어에 두면 위 리셋의 `div { border: 0 }`(특이성 0,0,1)이
+   `*`(0,0,0)를 이기므로, 한 단계 위인 components 레이어에 둔다.
+   utilities는 여전히 이보다 우선하므로 `border-destructive` 같은 지정은 살아 있다. */
+@layer components {
+	*,
+	::after,
+	::before {
+		border-color: var(--border);
 	}
 }
