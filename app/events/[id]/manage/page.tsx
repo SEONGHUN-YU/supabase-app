@@ -10,19 +10,22 @@ import {
 	ShowNamesToggle,
 	StatusSelect,
 } from '@/components/host-controls';
-import { RsvpBadge } from '@/components/rsvp-badge';
+import { ParticipantManager } from '@/components/participant-manager';
 import { StatusBanner } from '@/components/status-banner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatKST } from '@/lib/date';
 import { countGoing } from '@/lib/fixtures';
+import {
+	buildAnnouncementShareText,
+	buildSettlementShareText,
+} from '@/lib/share-text';
 import { createClient } from '@/lib/supabase/server';
 import { safeHref } from '@/lib/url';
 import type {
 	Announcement,
 	Event,
 	Participant,
-	RsvpStatus,
 	Settlement,
 } from '@/types/database';
 
@@ -34,35 +37,6 @@ import type {
  * 존재하는 이유(정적 셸 캐시 이점)가 여기엔 해당하지 않으므로, 데이터
  * 조회 전체를 단일 `<Suspense>`로 감싼다.
  */
-
-const STATUS_ORDER: RsvpStatus[] = ['going', 'maybe', 'not_going'];
-
-function ParticipantRow({
-	participant,
-	displayName,
-}: {
-	participant: Participant;
-	displayName: string;
-}) {
-	return (
-		<li className="flex items-center justify-between gap-3 py-2">
-			<div className="flex min-w-0 items-center gap-2">
-				<RsvpBadge status={participant.status} />
-				<span className="truncate text-sm">{displayName}</span>
-				{participant.guest_count > 0 && (
-					<span className="text-muted-foreground shrink-0 text-xs">
-						+{participant.guest_count}
-					</span>
-				)}
-			</div>
-			{participant.user_id === null && (
-				<span className="text-muted-foreground shrink-0 text-xs">
-					대리 등록
-				</span>
-			)}
-		</li>
-	);
-}
 
 async function ManageEventContent({
 	params,
@@ -136,12 +110,19 @@ async function ManageEventContent({
 	const goingCount = countGoing(participants);
 	const mapHref = safeHref(event.location_url);
 	const notes = participants.filter(participant => participant.note !== null);
+	const participantItems = participants.map(participant => ({
+		participant,
+		displayName: displayName(participant),
+	}));
 
 	// 정산 분담금은 참석자 수(동반 포함)로 나눈다. 나머지는 주최자 귀속.
 	const shareAmount =
 		settlement && goingCount > 0
 			? Math.floor(settlement.total_amount / goingCount)
 			: 0;
+
+	const invitePath = `/e/${event.public_token}`;
+	const latestAnnouncement = announcements[0] ?? null;
 
 	return (
 		<>
@@ -186,31 +167,8 @@ async function ManageEventContent({
 					<CardHeader>
 						<CardTitle className="text-base">참여자</CardTitle>
 					</CardHeader>
-					<CardContent className="flex flex-col gap-4">
-						{participants.length === 0 ? (
-							<EmptyState title="아직 응답한 사람이 없어요" />
-						) : (
-							STATUS_ORDER.map(status => {
-								const group = participants.filter(
-									participant => participant.status === status,
-								);
-								if (group.length === 0) return null;
-								return (
-									<ul key={status} className="divide-y">
-										{group.map(participant => (
-											<ParticipantRow
-												key={participant.id}
-												participant={participant}
-												displayName={displayName(participant)}
-											/>
-										))}
-									</ul>
-								);
-							})
-						)}
-						<Button variant="outline" size="sm" className="self-start">
-							참여자 직접 추가
-						</Button>
+					<CardContent>
+						<ParticipantManager eventId={id} items={participantItems} />
 					</CardContent>
 				</Card>
 
@@ -247,7 +205,7 @@ async function ManageEventContent({
 					<CardTitle className="text-base">공지</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-4">
-					<AnnouncementForm />
+					<AnnouncementForm eventId={id} />
 					{announcements.length === 0 ? (
 						<EmptyState title="아직 공지가 없어요" />
 					) : (
@@ -270,14 +228,34 @@ async function ManageEventContent({
 					<CardTitle className="text-base">공유</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-wrap gap-2">
-					<CopyButton
-						text={`/e/${event.public_token}`}
-						label="초대 링크 복사"
-					/>
+					<CopyButton text={invitePath} label="초대 링크 복사" />
 					<CopyButton
 						text={`[${event.title}]\n${formatKST(event.starts_at, 'full')}\n\n참석 여부를 알려주세요`}
 						label="공유 문구 복사"
 					/>
+					{latestAnnouncement && (
+						<CopyButton
+							text={buildAnnouncementShareText(
+								event.title,
+								latestAnnouncement.body,
+								goingCount,
+								event.capacity,
+								invitePath,
+							)}
+							label="공지 공유 문구 복사"
+						/>
+					)}
+					{settlement && (
+						<CopyButton
+							text={buildSettlementShareText(
+								event.title,
+								settlement.title,
+								settlement.total_amount,
+								invitePath,
+							)}
+							label="정산 요청 문구 복사"
+						/>
+					)}
 				</CardContent>
 			</Card>
 
@@ -286,10 +264,10 @@ async function ManageEventContent({
 					<CardTitle className="text-base">설정</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-5">
-					<ShowNamesToggle defaultValue={event.show_names} />
-					<StatusSelect defaultValue={event.status} />
+					<ShowNamesToggle eventId={id} defaultValue={event.show_names} />
+					<StatusSelect eventId={id} defaultValue={event.status} />
 					<Button variant="outline" size="sm" asChild className="self-start">
-						<Link href="/events/new">이 모임 복제</Link>
+						<Link href={`/events/new?duplicate=${id}`}>이 모임 복제</Link>
 					</Button>
 				</CardContent>
 			</Card>

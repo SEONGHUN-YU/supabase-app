@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -14,20 +16,23 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { announcementSchema } from '@/lib/schemas';
+import { createClient } from '@/lib/supabase/client';
 import type { EventStatus } from '@/types/database';
 
 /**
  * 주최자 조작 영역 (F005, F013, F014).
  *
- * Phase 2는 저장하지 않는다. 상태를 컴포넌트 안에서만 바꿔 화면 반응을
- * 확인하는 데까지가 이번 범위다 (Task 010에서 연동).
+ * Server Action을 쓰지 않는다. 저장 후에는 `router.refresh()`로 서버
+ * 컴포넌트(manage 페이지)를 다시 조회해 화면을 최신 상태로 맞춘다.
  */
 
-export function AnnouncementForm() {
+export function AnnouncementForm({ eventId }: { eventId: string }) {
+	const router = useRouter();
 	const [error, setError] = useState<string | null>(null);
 	const [draft, setDraft] = useState('');
+	const [submitting, setSubmitting] = useState(false);
 
-	const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		const result = announcementSchema.safeParse({ body: draft });
 		if (!result.success) {
@@ -37,7 +42,23 @@ export function AnnouncementForm() {
 			return;
 		}
 		setError(null);
+		setSubmitting(true);
+
+		const supabase = createClient();
+		const { error: dbError } = await supabase
+			.from('announcements')
+			.insert({ event_id: eventId, body: result.data.body });
+
+		setSubmitting(false);
+
+		if (dbError) {
+			toast.error(dbError.message);
+			return;
+		}
+
 		setDraft('');
+		toast.success('공지를 등록했어요');
+		router.refresh();
 	};
 
 	return (
@@ -53,16 +74,41 @@ export function AnnouncementForm() {
 				<span className="text-muted-foreground text-xs">
 					{draft.length} / 1000자
 				</span>
-				<Button type="submit" size="sm">
-					공지 등록
+				<Button type="submit" size="sm" disabled={submitting}>
+					{submitting ? '등록하는 중...' : '공지 등록'}
 				</Button>
 			</div>
 		</form>
 	);
 }
 
-export function ShowNamesToggle({ defaultValue }: { defaultValue: boolean }) {
+export function ShowNamesToggle({
+	eventId,
+	defaultValue,
+}: {
+	eventId: string;
+	defaultValue: boolean;
+}) {
+	const router = useRouter();
 	const [showNames, setShowNames] = useState(defaultValue);
+
+	const handleChange = async (next: boolean) => {
+		setShowNames(next);
+
+		const supabase = createClient();
+		const { error } = await supabase
+			.from('events')
+			.update({ show_names: next })
+			.eq('id', eventId);
+
+		if (error) {
+			setShowNames(!next);
+			toast.error(error.message);
+			return;
+		}
+
+		router.refresh();
+	};
 
 	return (
 		<div className="flex items-center justify-between gap-4">
@@ -75,7 +121,7 @@ export function ShowNamesToggle({ defaultValue }: { defaultValue: boolean }) {
 			<Switch
 				id="show-names"
 				checked={showNames}
-				onCheckedChange={setShowNames}
+				onCheckedChange={handleChange}
 			/>
 		</div>
 	);
@@ -87,16 +133,40 @@ const STATUS_OPTIONS: { value: EventStatus; label: string }[] = [
 	{ value: 'cancelled', label: '취소' },
 ];
 
-export function StatusSelect({ defaultValue }: { defaultValue: EventStatus }) {
+export function StatusSelect({
+	eventId,
+	defaultValue,
+}: {
+	eventId: string;
+	defaultValue: EventStatus;
+}) {
+	const router = useRouter();
 	const [status, setStatus] = useState<EventStatus>(defaultValue);
+
+	const handleChange = async (value: string) => {
+		const next = value as EventStatus;
+		const previous = status;
+		setStatus(next);
+
+		const supabase = createClient();
+		const { error } = await supabase
+			.from('events')
+			.update({ status: next })
+			.eq('id', eventId);
+
+		if (error) {
+			setStatus(previous);
+			toast.error(error.message);
+			return;
+		}
+
+		router.refresh();
+	};
 
 	return (
 		<div className="flex items-center justify-between gap-4">
 			<Label htmlFor="event-status">모집 상태</Label>
-			<Select
-				value={status}
-				onValueChange={value => setStatus(value as EventStatus)}
-			>
+			<Select value={status} onValueChange={handleChange}>
 				<SelectTrigger id="event-status" className="w-32">
 					<SelectValue />
 				</SelectTrigger>

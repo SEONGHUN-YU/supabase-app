@@ -1,22 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { CopyButton } from '@/components/copy-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { eventCreateSchema } from '@/lib/schemas';
-import { formatKST, toISOFromKSTInput } from '@/lib/date';
+import { toISOFromKSTInput, toKSTInputValue } from '@/lib/date';
+import { buildEventCreatedShareText } from '@/lib/share-text';
 import { createClient } from '@/lib/supabase/client';
 import { generatePublicToken } from '@/lib/token';
+import type { Event } from '@/types/database';
 
 /**
  * 이벤트 생성 폼 (F001, F002, F006).
  *
  * Server Action을 쓰지 않는다. 이 저장소는 클라이언트 컴포넌트에서 직접
  * 처리하는 방식이고 `components/login-form.tsx`가 그 선례다.
+ *
+ * `?duplicate=<eventId>` 쿼리로 들어오면 해당 이벤트(본인 소유 또는 참여
+ * 중인 이벤트만 RLS로 읽힌다)를 프리필한다 — "이 모임 복제" 진입점.
  */
 
 /** 필드별 에러 메시지. Zod의 flatten 결과를 담는다. */
@@ -28,18 +34,62 @@ const MAX_TOKEN_ATTEMPTS = 5;
 /** Postgres unique_violation. https://www.postgresql.org/docs/current/errcodes-appendix.html */
 const UNIQUE_VIOLATION = '23505';
 
-/** 단톡방에 붙여넣을 공유 문구 (F006) */
-function buildShareText(title: string, startsAtIso: string, url: string) {
-	return [
-		`[${title}]`,
-		formatKST(startsAtIso, 'full'),
-		'',
-		'참석 여부를 알려주세요',
-		url,
-	].join('\n');
+interface Prefill {
+	title: string;
+	description: string;
+	location: string;
+	location_url: string;
+	capacity: string;
+	starts_at: string;
+	rsvp_deadline: string;
+}
+
+/** `useSearchParams()`가 이 컴포넌트를 동적으로 만들므로 호출부(`app/events/new/page.tsx`)가 Suspense로 감싼다. */
+function useDuplicatePrefill(): { prefill: Prefill | null; loaded: boolean } {
+	const searchParams = useSearchParams();
+	const duplicateId = searchParams.get('duplicate');
+	const [prefill, setPrefill] = useState<Prefill | null>(null);
+	const [loaded, setLoaded] = useState(!duplicateId);
+
+	useEffect(() => {
+		if (!duplicateId) return;
+		let cancelled = false;
+
+		(async () => {
+			const supabase = createClient();
+			const { data } = await supabase
+				.from('events')
+				.select('*')
+				.eq('id', duplicateId)
+				.maybeSingle();
+
+			if (!cancelled && data) {
+				const event = data as Event;
+				setPrefill({
+					title: event.title,
+					description: event.description ?? '',
+					location: event.location ?? '',
+					location_url: event.location_url ?? '',
+					capacity: event.capacity === null ? '' : String(event.capacity),
+					starts_at: toKSTInputValue(event.starts_at),
+					rsvp_deadline: event.rsvp_deadline
+						? toKSTInputValue(event.rsvp_deadline)
+						: '',
+				});
+			}
+			if (!cancelled) setLoaded(true);
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [duplicateId]);
+
+	return { prefill, loaded };
 }
 
 export function EventForm() {
+	const { prefill, loaded } = useDuplicatePrefill();
 	const [errors, setErrors] = useState<FieldErrors>({});
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
@@ -130,7 +180,7 @@ export function EventForm() {
 
 	if (created) {
 		const inviteUrl = `${typeof window === 'undefined' ? '' : window.location.origin}/e/${created.publicToken}`;
-		const shareText = buildShareText(
+		const shareText = buildEventCreatedShareText(
 			created.title,
 			created.startsAtIso,
 			inviteUrl,
@@ -175,12 +225,27 @@ export function EventForm() {
 		);
 	}
 
+	if (!loaded) {
+		return (
+			<div className="flex flex-col gap-3">
+				<div className="bg-muted h-10 animate-pulse rounded-md" />
+				<div className="bg-muted h-10 animate-pulse rounded-md" />
+				<div className="bg-muted h-24 animate-pulse rounded-md" />
+			</div>
+		);
+	}
+
 	return (
 		<form onSubmit={handleSubmit} className="flex flex-col gap-5">
 			{submitError && <p className="text-destructive text-sm">{submitError}</p>}
 
 			<Field label="제목" htmlFor="title" errors={errors.title} required>
-				<Input id="title" name="title" placeholder="주말 한강 러닝" />
+				<Input
+					id="title"
+					name="title"
+					placeholder="주말 한강 러닝"
+					defaultValue={prefill?.title}
+				/>
 			</Field>
 
 			<Field
@@ -190,7 +255,12 @@ export function EventForm() {
 				hint="한국 시간(KST) 기준입니다"
 				required
 			>
-				<Input id="starts_at" name="starts_at" type="datetime-local" />
+				<Input
+					id="starts_at"
+					name="starts_at"
+					type="datetime-local"
+					defaultValue={prefill?.starts_at}
+				/>
 			</Field>
 
 			<Field label="장소" htmlFor="location" errors={errors.location}>
@@ -198,6 +268,7 @@ export function EventForm() {
 					id="location"
 					name="location"
 					placeholder="뚝섬유원지역 2번 출구"
+					defaultValue={prefill?.location}
 				/>
 			</Field>
 
@@ -211,6 +282,7 @@ export function EventForm() {
 					id="location_url"
 					name="location_url"
 					placeholder="https://map.naver.com/..."
+					defaultValue={prefill?.location_url}
 				/>
 			</Field>
 
@@ -224,6 +296,7 @@ export function EventForm() {
 					name="description"
 					rows={3}
 					placeholder="가볍게 5km 뛰고 근처에서 저녁 먹어요."
+					defaultValue={prefill?.description}
 				/>
 			</Field>
 
@@ -233,7 +306,14 @@ export function EventForm() {
 				errors={errors.capacity}
 				hint="비워두면 무제한. 동반 인원을 포함한 총원 기준입니다"
 			>
-				<Input id="capacity" name="capacity" type="number" min={1} max={500} />
+				<Input
+					id="capacity"
+					name="capacity"
+					type="number"
+					min={1}
+					max={500}
+					defaultValue={prefill?.capacity}
+				/>
 			</Field>
 
 			<Field
@@ -242,7 +322,12 @@ export function EventForm() {
 				errors={errors.rsvp_deadline}
 				hint="모임 일시보다 앞서야 합니다"
 			>
-				<Input id="rsvp_deadline" name="rsvp_deadline" type="datetime-local" />
+				<Input
+					id="rsvp_deadline"
+					name="rsvp_deadline"
+					type="datetime-local"
+					defaultValue={prefill?.rsvp_deadline}
+				/>
 			</Field>
 
 			<Button
