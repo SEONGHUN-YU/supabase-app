@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { AttendanceSummary } from '@/components/attendance-summary';
 import { CopyButton } from '@/components/copy-button';
 import { EmptyState } from '@/components/empty-state';
@@ -13,35 +15,40 @@ import { StatusBanner } from '@/components/status-banner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatKST } from '@/lib/date';
-import {
-	countGoing,
-	makeAnnouncement,
-	makeEvent,
-	makeSettlement,
-	participantDisplayName,
-	sampleParticipants,
-} from '@/lib/fixtures';
+import { countGoing } from '@/lib/fixtures';
+import { createClient } from '@/lib/supabase/server';
 import { safeHref } from '@/lib/url';
-import type { Participant, RsvpStatus } from '@/types/database';
+import type {
+	Announcement,
+	Event,
+	Participant,
+	RsvpStatus,
+	Settlement,
+} from '@/types/database';
 
 /**
  * 이벤트 관리 페이지 — 주최자의 단일 작업 공간.
  *
- * `params`를 읽지 않는다. `cacheComponents` 환경에서 `params`는 동적 API라
- * 읽는 순간 `<Suspense>` 경계가 필요해진다. 더미 단계에서는 불필요한
- * 복잡도이므로 고정 이벤트를 렌더하고, 실제 연동은 Task 008에서 함께 처리한다.
+ * `/events/[id]/manage`는 proxy 인증 예외에 없는 로그인 전용 라우트고,
+ * 페이지 전체가 host 인증 여부에 의존한다. `/e/[token]`의 '좁게' 원칙이
+ * 존재하는 이유(정적 셸 캐시 이점)가 여기엔 해당하지 않으므로, 데이터
+ * 조회 전체를 단일 `<Suspense>`로 감싼다.
  */
 
 const STATUS_ORDER: RsvpStatus[] = ['going', 'maybe', 'not_going'];
 
-function ParticipantRow({ participant }: { participant: Participant }) {
+function ParticipantRow({
+	participant,
+	displayName,
+}: {
+	participant: Participant;
+	displayName: string;
+}) {
 	return (
 		<li className="flex items-center justify-between gap-3 py-2">
 			<div className="flex min-w-0 items-center gap-2">
 				<RsvpBadge status={participant.status} />
-				<span className="truncate text-sm">
-					{participantDisplayName(participant)}
-				</span>
+				<span className="truncate text-sm">{displayName}</span>
 				{participant.guest_count > 0 && (
 					<span className="text-muted-foreground shrink-0 text-xs">
 						+{participant.guest_count}
@@ -57,21 +64,87 @@ function ParticipantRow({ participant }: { participant: Participant }) {
 	);
 }
 
-export default function ManageEventPage() {
-	const event = makeEvent();
-	const participants = sampleParticipants();
-	const announcements = [makeAnnouncement()];
-	const settlement = makeSettlement();
+async function ManageEventContent({
+	params,
+}: {
+	params: Promise<{ id: string }>;
+}) {
+	const { id } = await params;
+	const supabase = await createClient();
+
+	const { data: session } = await supabase.auth.getClaims();
+	const uid = session?.claims?.sub;
+
+	const { data: eventData } = await supabase
+		.from('events')
+		.select('*')
+		.eq('id', id)
+		.maybeSingle();
+	const event = eventData as Event | null;
+
+	// events_select RLS는 호스트뿐 아니라 참여자에게도 읽기를 허용하므로,
+	// 참여자가 남의 관리 페이지에 들어오는 경우를 여기서 따로 막는다.
+	if (!event || event.host_id !== uid) notFound();
+
+	const [
+		{ data: participantsData },
+		{ data: nameRows },
+		{ data: announcementsData },
+		{ data: settlementData },
+	] = await Promise.all([
+		supabase
+			.from('participants')
+			.select('*')
+			.eq('event_id', id)
+			.order('created_at', { ascending: true }),
+		supabase.rpc('get_host_participant_names', { p_event_id: id }),
+		supabase
+			.from('announcements')
+			.select('*')
+			.eq('event_id', id)
+			.order('created_at', { ascending: false }),
+		supabase
+			.from('settlements')
+			.select('*')
+			.eq('event_id', id)
+			.order('created_at', { ascending: false })
+			.limit(1)
+			.maybeSingle(),
+	]);
+
+	const participants = (participantsData ?? []) as Participant[];
+	const announcements = (announcementsData ?? []) as Announcement[];
+	const settlement = settlementData as Settlement | null;
+
+	// profiles RLS가 본인 행만 허용해 participants ⨝ profiles를 직접 못 하므로
+	// get_host_participant_names(호스트 전용 SECURITY DEFINER)로 이름만 따로 받는다.
+	const hostParticipantNames = (nameRows ?? []) as {
+		user_id: string;
+		full_name: string | null;
+	}[];
+	const profileNames = Object.fromEntries(
+		hostParticipantNames.map(row => [row.user_id, row.full_name ?? '']),
+	) as Record<string, string>;
+
+	function displayName(participant: Participant): string {
+		if (participant.display_name) return participant.display_name;
+		if (participant.user_id)
+			return profileNames[participant.user_id] || '이름 없음';
+		return '이름 없음';
+	}
 
 	const goingCount = countGoing(participants);
 	const mapHref = safeHref(event.location_url);
 	const notes = participants.filter(participant => participant.note !== null);
 
 	// 정산 분담금은 참석자 수(동반 포함)로 나눈다. 나머지는 주최자 귀속.
-	const shareAmount = Math.floor(settlement.total_amount / goingCount);
+	const shareAmount =
+		settlement && goingCount > 0
+			? Math.floor(settlement.total_amount / goingCount)
+			: 0;
 
 	return (
-		<main className="flex flex-col gap-6 py-6">
+		<>
 			<div className="flex flex-col gap-2">
 				<Link
 					href="/dashboard"
@@ -114,22 +187,27 @@ export default function ManageEventPage() {
 						<CardTitle className="text-base">참여자</CardTitle>
 					</CardHeader>
 					<CardContent className="flex flex-col gap-4">
-						{STATUS_ORDER.map(status => {
-							const group = participants.filter(
-								participant => participant.status === status,
-							);
-							if (group.length === 0) return null;
-							return (
-								<ul key={status} className="divide-y">
-									{group.map(participant => (
-										<ParticipantRow
-											key={participant.id}
-											participant={participant}
-										/>
-									))}
-								</ul>
-							);
-						})}
+						{participants.length === 0 ? (
+							<EmptyState title="아직 응답한 사람이 없어요" />
+						) : (
+							STATUS_ORDER.map(status => {
+								const group = participants.filter(
+									participant => participant.status === status,
+								);
+								if (group.length === 0) return null;
+								return (
+									<ul key={status} className="divide-y">
+										{group.map(participant => (
+											<ParticipantRow
+												key={participant.id}
+												participant={participant}
+												displayName={displayName(participant)}
+											/>
+										))}
+									</ul>
+								);
+							})
+						)}
 						<Button variant="outline" size="sm" className="self-start">
 							참여자 직접 추가
 						</Button>
@@ -153,7 +231,7 @@ export default function ManageEventPage() {
 								{notes.map(participant => (
 									<li key={participant.id} className="flex flex-col gap-0.5">
 										<span className="text-muted-foreground text-xs">
-											{participantDisplayName(participant)}
+											{displayName(participant)}
 										</span>
 										<p className="text-sm">{participant.note}</p>
 									</li>
@@ -170,16 +248,20 @@ export default function ManageEventPage() {
 				</CardHeader>
 				<CardContent className="flex flex-col gap-4">
 					<AnnouncementForm />
-					<ul className="flex flex-col gap-3 border-t pt-4">
-						{announcements.map(announcement => (
-							<li key={announcement.id} className="flex flex-col gap-0.5">
-								<span className="text-muted-foreground text-xs">
-									{formatKST(announcement.created_at, 'short')}
-								</span>
-								<p className="text-sm">{announcement.body}</p>
-							</li>
-						))}
-					</ul>
+					{announcements.length === 0 ? (
+						<EmptyState title="아직 공지가 없어요" />
+					) : (
+						<ul className="flex flex-col gap-3 border-t pt-4">
+							{announcements.map(announcement => (
+								<li key={announcement.id} className="flex flex-col gap-0.5">
+									<span className="text-muted-foreground text-xs">
+										{formatKST(announcement.created_at, 'short')}
+									</span>
+									<p className="text-sm">{announcement.body}</p>
+								</li>
+							))}
+						</ul>
+					)}
 				</CardContent>
 			</Card>
 
@@ -217,37 +299,70 @@ export default function ManageEventPage() {
 					<CardTitle className="text-base">정산</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-4">
-					<div className="flex flex-col gap-1">
-						<p className="font-medium">{settlement.title}</p>
-						<p className="text-muted-foreground text-sm">
-							총 {settlement.total_amount.toLocaleString('ko-KR')}원 · 참석{' '}
-							{goingCount}명 · 1인 {shareAmount.toLocaleString('ko-KR')}원
-						</p>
-					</div>
+					{settlement ? (
+						<>
+							<div className="flex flex-col gap-1">
+								<p className="font-medium">{settlement.title}</p>
+								<p className="text-muted-foreground text-sm">
+									총 {settlement.total_amount.toLocaleString('ko-KR')}원 · 참석{' '}
+									{goingCount}명 · 1인 {shareAmount.toLocaleString('ko-KR')}원
+								</p>
+							</div>
 
-					{settlement.account_info && (
-						<div className="flex items-center gap-2">
-							<span className="text-sm">{settlement.account_info}</span>
-							<CopyButton text={settlement.account_info} label="계좌 복사" />
-						</div>
-					)}
-
-					<ul className="divide-y border-t pt-2">
-						{participants
-							.filter(participant => participant.status === 'going')
-							.map((participant, index) => (
-								<li key={participant.id}>
-									<PaymentCheck
-										id={`paid-${participant.id}`}
-										label={participantDisplayName(participant)}
-										amount={shareAmount}
-										defaultPaid={index === 0}
+							{settlement.account_info && (
+								<div className="flex items-center gap-2">
+									<span className="text-sm">{settlement.account_info}</span>
+									<CopyButton
+										text={settlement.account_info}
+										label="계좌 복사"
 									/>
-								</li>
-							))}
-					</ul>
+								</div>
+							)}
+
+							<ul className="divide-y border-t pt-2">
+								{participants
+									.filter(participant => participant.status === 'going')
+									.map(participant => (
+										<li key={participant.id}>
+											<PaymentCheck
+												id={`paid-${participant.id}`}
+												label={displayName(participant)}
+												amount={shareAmount}
+												defaultPaid={false}
+											/>
+										</li>
+									))}
+							</ul>
+						</>
+					) : (
+						<EmptyState title="아직 정산이 없어요" />
+					)}
 				</CardContent>
 			</Card>
+		</>
+	);
+}
+
+function ManageSkeleton() {
+	return (
+		<div className="flex flex-col gap-3">
+			<div className="bg-muted h-8 w-64 animate-pulse rounded-md" />
+			<div className="bg-muted h-40 animate-pulse rounded-md" />
+			<div className="bg-muted h-40 animate-pulse rounded-md" />
+		</div>
+	);
+}
+
+export default function ManageEventPage({
+	params,
+}: {
+	params: Promise<{ id: string }>;
+}) {
+	return (
+		<main className="flex flex-col gap-6 py-6">
+			<Suspense fallback={<ManageSkeleton />}>
+				<ManageEventContent params={params} />
+			</Suspense>
 		</main>
 	);
 }

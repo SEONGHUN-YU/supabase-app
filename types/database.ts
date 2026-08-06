@@ -114,11 +114,21 @@ export type ParticipantPublic = Omit<Participant, 'note'>;
 /**
  * `get_event_preview(p_token)` RPC의 반환 타입.
  * 비로그인 열람 경로라 필드가 고정이며, 여기에 필드를 늘리면 과다 노출이 된다.
+ *
+ * Task 008에서 description/location_url/rsvp_deadline/show_names를 추가했다
+ * (마이그레이션 005). 전부 "이벤트 정보" 범주라 §2 확정된 결정("이벤트 정보만
+ * 비로그인 공개")에 부합하고, note 등 참여자 개인정보는 여전히 미노출이다.
  */
 export interface EventPreview {
 	title: string;
 	starts_at: Timestamptz;
 	location: string | null;
+	location_url: string | null;
+	description: string | null;
+	/** null이면 무제한. 동반 인원을 포함한 총원 기준이다 (R14) */
+	capacity: number | null;
+	rsvp_deadline: Timestamptz | null;
+	show_names: boolean;
 	status: EventStatus;
 	/** 동반 인원을 합산한 참석 총원 */
 	going_count: number;

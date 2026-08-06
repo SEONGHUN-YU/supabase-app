@@ -23,13 +23,13 @@
 
 로그인 필수화로 v1·v2의 "핵심 난제"였던 **RLS와 비로그인 참여의 구조적 충돌이 해소**된다.
 
-| 없어짐 | 이유 |
-| --- | --- |
-| `lib/supabase/admin.ts` + `SUPABASE_SECRET_KEY` | `service_role`이 불필요 |
+| 없어짐                                           | 이유                           |
+| ------------------------------------------------ | ------------------------------ |
+| `lib/supabase/admin.ts` + `SUPABASE_SECRET_KEY`  | `service_role`이 불필요        |
 | "모든 공개 Server Action 첫 줄에 토큰 검증" 규율 | RLS가 `auth.uid()`로 정상 작동 |
-| 3단 폴백 본인 식별 (R5) | 계정이 곧 신원 |
-| 단일 쿠키 LRU 관리 (R4) | 세션 쿠키 하나 |
-| 중복 응답 병합 (R15) | `unique(event_id, user_id)` |
+| 3단 폴백 본인 식별 (R5)                          | 계정이 곧 신원                 |
+| 단일 쿠키 LRU 관리 (R4)                          | 세션 쿠키 하나                 |
+| 중복 응답 병합 (R15)                             | `unique(event_id, user_id)`    |
 
 `service_role`은 RLS를 통째로 우회하므로 검증 한 줄만 빠뜨려도 전체 데이터가 노출되는 설계였다. **그 시한폭탄이 제거된다.** 봇 스팸(R6)도 로그인 장벽으로 대부분 막힌다.
 
@@ -41,16 +41,16 @@
 
 ### 확정된 결정
 
-| 항목 | 결정 |
-| --- | --- |
-| 1차 범위 | 공지 + 참여자 관리 + **정산** |
-| 참여 방식 | **전원 로그인 필수** |
-| 로그인 수단 | **카카오 + 구글** (카카오가 모바일 주 경로) |
+| 항목        | 결정                                              |
+| ----------- | ------------------------------------------------- |
+| 1차 범위    | 공지 + 참여자 관리 + **정산**                     |
+| 참여 방식   | **전원 로그인 필수**                              |
+| 로그인 수단 | **카카오 + 구글** (카카오가 모바일 주 경로)       |
 | 초대 페이지 | **이벤트 정보만 비로그인 공개**, 응답은 로그인 후 |
-| 알림 | 카톡 공유 텍스트 생성 (발송 인프라 없음) |
-| 명단 공개 | 이름 공개(주최자가 토글), `note`는 주최자 전용 |
-| 데이터 구조 | 이벤트 단건 중심 (그룹 계층 없음) |
-| 검증 범위 | 지인 모임 우선 → 경량 개인정보 대응 |
+| 알림        | 카톡 공유 텍스트 생성 (발송 인프라 없음)          |
+| 명단 공개   | 이름 공개(주최자가 토글), `note`는 주최자 전용    |
+| 데이터 구조 | 이벤트 단건 중심 (그룹 계층 없음)                 |
+| 검증 범위   | 지인 모임 우선 → 경량 개인정보 대응               |
 
 ---
 
@@ -68,13 +68,13 @@
 
 v2의 "RSVP 응답률 60%"는 로그인 장벽이 생긴 지금 비현실적이다. 신규/재방문을 분리해 측정한다.
 
-| 지표 | 목표 | 비고 |
-| --- | --- | --- |
-| **주최자 재사용률** (첫 이벤트 후 14일 내 2번째) | 40% | **주 지표** |
-| **재방문 참여자 응답률** (세션 보유자) | 75% | 마찰이 0인 구간. 여기가 낮으면 제품 가치 자체가 문제 |
-| 신규 참여자 전환율 (열람 → 로그인 → 응답) | 35% | 로그인 장벽의 실제 비용 측정 |
-| 정산 완료율 (생성 → 전원 입금 체크) | 70% | 정산이 끝까지 쓰이는가 |
-| 이벤트 생성 소요 시간 | 60초 | 카톡 투표보다 빨라야 함 |
+| 지표                                             | 목표 | 비고                                                 |
+| ------------------------------------------------ | ---- | ---------------------------------------------------- |
+| **주최자 재사용률** (첫 이벤트 후 14일 내 2번째) | 40%  | **주 지표**                                          |
+| **재방문 참여자 응답률** (세션 보유자)           | 75%  | 마찰이 0인 구간. 여기가 낮으면 제품 가치 자체가 문제 |
+| 신규 참여자 전환율 (열람 → 로그인 → 응답)        | 35%  | 로그인 장벽의 실제 비용 측정                         |
+| 정산 완료율 (생성 → 전원 입금 체크)              | 70%  | 정산이 끝까지 쓰이는가                               |
+| 이벤트 생성 소요 시간                            | 60초 | 카톡 투표보다 빨라야 함                              |
 
 **판정 조건 (R21)**: 이벤트 10건 · 봇 제외 열람 100건 이전에는 판단하지 않는다. 모임 빈도상 최소 한 달이 걸린다 (R23).
 
@@ -106,14 +106,14 @@ v2의 "RSVP 응답률 60%"는 로그인 장벽이 생긴 지금 비현실적이�
 
 ### 명시적 제외 (근거 포함)
 
-| 제외 항목 | 근거 |
-| --- | --- |
-| **카풀 매칭** | 수요 폭이 좁고(원정 모임 한정) 좌석 배정·경로·유류비까지 붙으면 나머지 전부를 합친 것보다 복잡 |
+| 제외 항목              | 근거                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| **카풀 매칭**          | 수요 폭이 좁고(원정 모임 한정) 좌석 배정·경로·유류비까지 붙으면 나머지 전부를 합친 것보다 복잡     |
 | **알림톡·이메일 발송** | 카톡 공유 텍스트로 대체. 이메일은 한국에서 열람률이 낮아 **카톡 공유보다 도달이 나쁠 가능성**이 큼 |
-| **결제·송금 연동** | 계좌 복사로 90% 해결. 딥링크 규격 대응 비용이 큼 |
-| **그룹/정기모임 계층** | "복제하기" 버튼으로 반복 일정 커버 |
-| **댓글·채팅** | 단톡방이 이미 잘 하는 일. 경쟁하지 않음 |
-| **웹 푸시** | iOS는 홈 화면 추가가 필요해 참여자에게 요구할 수 없음 |
+| **결제·송금 연동**     | 계좌 복사로 90% 해결. 딥링크 규격 대응 비용이 큼                                                   |
+| **그룹/정기모임 계층** | "복제하기" 버튼으로 반복 일정 커버                                                                 |
+| **댓글·채팅**          | 단톡방이 이미 잘 하는 일. 경쟁하지 않음                                                            |
+| **웹 푸시**            | iOS는 홈 화면 추가가 필요해 참여자에게 요구할 수 없음                                              |
 
 ## 3. 사용자 흐름
 
@@ -137,14 +137,14 @@ v2의 "RSVP 응답률 60%"는 로그인 장벽이 생긴 지금 비현실적이�
 
 ## 4. 화면 목록
 
-| 경로 | 인증 | 설명 |
-| --- | --- | --- |
-| `/` | 공개 | 랜딩. 기존 `app/page.tsx` 히어로 교체 |
-| `/dashboard` | 필요 | 내 이벤트 (주최 / 참여 탭) |
-| `/events/new` | 필요 | 이벤트 생성 폼 |
-| `/events/[id]/manage` | 필요(주최자) | 현황판 + 공지 + 공유 텍스트 + 정산 |
-| `/e/[token]` | **부분 공개** | 이벤트 정보는 누구나, 응답·명단은 로그인 후 |
-| `/privacy` | 공개 | 개인정보 처리 안내 (R9) |
+| 경로                  | 인증          | 설명                                        |
+| --------------------- | ------------- | ------------------------------------------- |
+| `/`                   | 공개          | 랜딩. 기존 `app/page.tsx` 히어로 교체       |
+| `/dashboard`          | 필요          | 내 이벤트 (주최 / 참여 탭)                  |
+| `/events/new`         | 필요          | 이벤트 생성 폼                              |
+| `/events/[id]/manage` | 필요(주최자)  | 현황판 + 공지 + 공유 텍스트 + 정산          |
+| `/e/[token]`          | **부분 공개** | 이벤트 정보는 누구나, 응답·명단은 로그인 후 |
+| `/privacy`            | 공개          | 개인정보 처리 안내 (R9)                     |
 
 **모바일 우선 (R20)**: 참여자 트래픽은 사실상 100% 모바일이고 대부분 카톡 인앱 브라우저다. `/e/[token]`은 모바일 레이아웃을 먼저 만들고 데스크톱을 나중에 맞춘다.
 
@@ -245,22 +245,47 @@ for each row execute function public.touch_updated_at();
 
 ```sql
 -- 비로그인 미리보기: 반환 필드가 고정이라 과다 노출이 불가능하다
+-- Task 008에서 description/location_url/capacity/rsvp_deadline/show_names 추가
+-- (마이그레이션 005, 008). 전부 "이벤트 정보" 범주라 위 확정된 결정에 부합하고,
+-- note 등 참여자 개인정보는 여전히 미노출이다.
 create or replace function public.get_event_preview(p_token text)
 returns table (title text, starts_at timestamptz, location text,
-               status text, going_count int)
+               location_url text, description text, capacity int,
+               rsvp_deadline timestamptz, show_names boolean, status text,
+               going_count int)
 language sql security definer set search_path = public as $$
-  select e.title, e.starts_at, e.location, e.status,
+  select e.title, e.starts_at, e.location, e.location_url, e.description,
+         e.capacity, e.rsvp_deadline, e.show_names, e.status,
          (select coalesce(sum(1 + p.guest_count), 0)::int
             from participants p
            where p.event_id = e.id and p.status = 'going')
     from events e where e.public_token = p_token;
 $$;
 
-revoke all on function public.get_event_preview(text) from public;
+revoke all on function public.get_event_preview(text) from public, anon, authenticated;
 grant execute on function public.get_event_preview(text) to anon, authenticated;
 ```
 
 토큰 검증이 **함수 안에** 있으므로 v1처럼 "모든 Server Action 첫 줄에서 검증"을 사람이 지킬 필요가 없다. 규율이 아니라 구조로 강제된다.
+
+### 비로그인 공지 열람 (Task 008 추가)
+
+`announcements` 테이블에는 `announcements_host`(호스트 전용) 정책만 있어 초대 페이지가 공지를 표시할 방법이 없었다. 공지는 호스트가 전원에게 보이려고 쓰는 글이라 참여자 개인정보와 무관하므로, `get_event_preview`와 같은 위협 모델로 별도 함수를 추가했다.
+
+```sql
+create or replace function public.get_event_announcements(p_token text)
+returns table (id uuid, body text, created_at timestamptz)
+language sql security definer set search_path = public as $$
+  select a.id, a.body, a.created_at
+    from announcements a
+    join events e on e.id = a.event_id
+   where e.public_token = p_token
+   order by a.created_at desc;
+$$;
+
+revoke all on function public.get_event_announcements(text) from public, anon, authenticated;
+grant execute on function public.get_event_announcements(text) to anon, authenticated;
+```
 
 ### 참여 흐름 — 토큰에서 멤버십으로
 
@@ -340,6 +365,30 @@ end $$;
 
 `note`가 반환 목록에 아예 없으므로 실수로 노출될 수 없다.
 
+### 호스트 참여자 이름 해석 (Task 008 추가)
+
+`participants_host` RLS로 호스트는 `note`를 포함한 참여자 원본 행을 직접 읽을 수 있지만, `profiles` 테이블은 "본인 프로필 조회" 정책(`auth.uid() = id`)이라 타인의 `full_name`을 읽지 못한다. `get_event_participants`는 `note`를 의도적으로 반환하지 않으므로(R10) 이 용도로 재사용할 수 없다. 이름 해석만 하는 별도 함수로 좁혔다.
+
+```sql
+create or replace function public.get_host_participant_names(p_event_id uuid)
+returns table (user_id uuid, full_name text)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from events
+                  where id = p_event_id and host_id = auth.uid())
+  then raise exception '접근 권한이 없습니다'; end if;
+
+  return query
+    select p.user_id, pr.full_name
+      from participants p
+      join profiles pr on pr.id = p.user_id
+     where p.event_id = p_event_id and p.user_id is not null;
+end $$;
+
+revoke all on function public.get_host_participant_names(uuid) from public, anon;
+grant execute on function public.get_host_participant_names(uuid) to authenticated;
+```
+
 ### 그 외
 
 - **R6 쓰기 남용**: 로그인 장벽 + `join_event` 내 인원 상한 + DB `check` 길이 제약. 애플리케이션 검증을 우회당해도 DB가 막는다
@@ -366,7 +415,7 @@ Supabase(GoTrue)의 Kakao provider는 scope를 **`account_email profile_image pr
 > 잘못된 요청 (KOE205) — 설정하지 않은 카카오 로그인 동의 항목을 포함해 인가 코드를 요청했습니다.
 > 설정하지 않은 동의 항목: account_email
 
-Supabase 문서의 *"you can omit `account_email` and enable Allow users without an email"* 안내는 이 조합에서 성립하지 않는다. 그 문장을 실측 없이 믿었던 것이 오판의 원인이다.
+Supabase 문서의 _"you can omit `account_email` and enable Allow users without an email"_ 안내는 이 조합에서 성립하지 않는다. 그 문장을 실측 없이 믿었던 것이 오판의 원인이다.
 
 따라서 **동의항목은 `profile_nickname`·`profile_image`·`account_email` 세 개를 모두 설정해야 하고, `account_email`은 비즈 앱에서만 켤 수 있으므로 비즈 앱 전환이 전제된다.** 전환은 완료했다.
 
@@ -398,7 +447,7 @@ Supabase 문서의 *"you can omit `account_email` and enable Allow users without
 ```ts
 // 기존 조건에 추가
 !request.nextUrl.pathname.startsWith('/e/') &&
-!request.nextUrl.pathname.startsWith('/privacy')
+	!request.nextUrl.pathname.startsWith('/privacy');
 ```
 
 **주의**: 이 파일은 `createServerClient()`와 `getClaims()` 사이에 코드를 넣으면 안 되고, 새 `NextResponse`를 만들면 쿠키를 복사해야 한다. 어기면 사용자가 무작위로 로그아웃되는 추적 난이도 최상의 버그가 생긴다 (파일 내 주석·CLAUDE.md에 명시).
@@ -476,18 +525,18 @@ DB 상태는 `list_tables`, `execute_sql`(조회용)로 확인하고, 스키마 
 
 ## 10. 남은 리스크
 
-| # | 리스크 | 대응 |
-| --- | --- | --- |
-| **N1** | 카톡 인앱 브라우저 구글 OAuth 차단 | 카카오 로그인 도입. Phase 1 실기기 검증 필수 |
-| **N2** | 로그인 마찰로 신규 참여 이탈 | 이벤트 정보 선공개로 완화. 신규 전환율 20% 미만이면 결정 재검토 |
-| **N3** | R1 악화 — 카톡 투표와 마찰 격차 확대 | 정산이 유일한 방어선. 1차 편입 결정이 더 중요해짐 |
-| **N4** | 구글·카카오 계정 분리 | **잔존.** 이메일을 수집하게 됐지만 자동 연결은 두 수단의 이메일이 **같을 때만** 일어난다. 한국에서는 다른 경우가 일반적이다. 아래 상세 |
-| R13 | 정원 동시성 — 동시 응답 시 초과 가능 | **정원은 표시용으로 정의.** 하드 제한은 트랜잭션 비용 대비 실익 없음 |
-| R19 | Supabase 무료 플랜 **1주일 미사용 시 일시정지** | 검증 중 DB가 자고 있으면 첫인상을 잃고 지표도 오염된다. 검증 시작 전 유료 전환 또는 keep-alive cron 결정 |
-| R22 | 초기 사용자 확보 | 본인이 주최하는 실제 모임에 직접 사용 |
-| R23 | 낮은 모임 빈도 → 긴 검증 주기 | 최소 한 달 확보 |
-| — | 카카오 계정 미보유자 | 구글 병행으로 커버 |
-| — | 링크 무단 확산 | MVP는 감수. `show_names` 토글이 1차 완충. 실제 문제화되면 이벤트 잠금 추가 |
+| #      | 리스크                                          | 대응                                                                                                                                   |
+| ------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **N1** | 카톡 인앱 브라우저 구글 OAuth 차단              | 카카오 로그인 도입. Phase 1 실기기 검증 필수                                                                                           |
+| **N2** | 로그인 마찰로 신규 참여 이탈                    | 이벤트 정보 선공개로 완화. 신규 전환율 20% 미만이면 결정 재검토                                                                        |
+| **N3** | R1 악화 — 카톡 투표와 마찰 격차 확대            | 정산이 유일한 방어선. 1차 편입 결정이 더 중요해짐                                                                                      |
+| **N4** | 구글·카카오 계정 분리                           | **잔존.** 이메일을 수집하게 됐지만 자동 연결은 두 수단의 이메일이 **같을 때만** 일어난다. 한국에서는 다른 경우가 일반적이다. 아래 상세 |
+| R13    | 정원 동시성 — 동시 응답 시 초과 가능            | **정원은 표시용으로 정의.** 하드 제한은 트랜잭션 비용 대비 실익 없음                                                                   |
+| R19    | Supabase 무료 플랜 **1주일 미사용 시 일시정지** | 검증 중 DB가 자고 있으면 첫인상을 잃고 지표도 오염된다. 검증 시작 전 유료 전환 또는 keep-alive cron 결정                               |
+| R22    | 초기 사용자 확보                                | 본인이 주최하는 실제 모임에 직접 사용                                                                                                  |
+| R23    | 낮은 모임 빈도 → 긴 검증 주기                   | 최소 한 달 확보                                                                                                                        |
+| —      | 카카오 계정 미보유자                            | 구글 병행으로 커버                                                                                                                     |
+| —      | 링크 무단 확산                                  | MVP는 감수. `show_names` 토글이 1차 완충. 실제 문제화되면 이벤트 잠금 추가                                                             |
 
 ### N4 — 구글·카카오 계정 분리
 
@@ -501,7 +550,7 @@ Supabase 문서:
 
 **증상**: 주최자가 데스크톱에서 구글로 로그인해 이벤트를 만든다. 나중에 단톡방에서 자기 링크를 열면 카톡 인앱 브라우저이므로 카카오로 로그인한다. 두 이메일이 다르면 **별개 사용자**가 되어, 자기가 만든 이벤트가 대시보드에서 사라진다. 버그로 오인하기 쉽다.
 
-**MVP 대응**: 감수한다. 참여자는 링크로 진입해 한 기기·한 수단만 쓰므로 영향이 거의 없고, 주최자도 수단을 하나로 고정하면 문제가 없다. 로그인 페이지에 *"가입할 때 쓴 수단으로 로그인해 주세요"* 안내를 **유지한다.**
+**MVP 대응**: 감수한다. 참여자는 링크로 진입해 한 기기·한 수단만 쓰므로 영향이 거의 없고, 주최자도 수단을 하나로 고정하면 문제가 없다. 로그인 페이지에 _"가입할 때 쓴 수단으로 로그인해 주세요"_ 안내를 **유지한다.**
 
 **부분 완화**: 두 이메일이 우연히 같은 사용자에게는 자동 연결이 동작한다. `account_email`을 필수 동의로 두었고 카카오가 `email_verified: true`로 넘겨주는 것을 확인했으므로, 조건이 맞는 경우의 전제는 갖춰져 있다. **다만 실측하지 못했다** — 아래 참조.
 
@@ -513,28 +562,28 @@ Supabase 문서:
 
 ## 부록 — 리스크 대응 매핑
 
-| 리스크 | 상태 |
-| --- | --- |
-| R1 차별점 부재 | §1 포지션 + 정산 1차 편입 |
-| R2 알림 부재 | Phase 2 카톡 공유 텍스트 |
-| R3 지표 측정 불가 | §5 `event_views` + 봇 필터 |
-| R4 쿠키 초과 | **해소** — 로그인 세션 |
-| R5 인앱 브라우저 쿠키 유실 | **해소** — 계정 기반. 단 N1으로 대체됨 |
-| R6 무인증 쓰기 | **대폭 완화** — 로그인 + `join_event` 상한 |
-| R7 PPR 무력화 | §7 정적 셸 분리 |
-| R8 타임존 | §7 `lib/date.ts` |
-| R9 개인정보 | §6 정식 동의 + `/privacy` + IP 해시 |
-| R10 명단 공개 | §6 `get_event_participants` (note 미반환) |
-| R11 status 제약 | §5 `check` |
-| R12 updated_at | §5 트리거 |
-| R13 정원 동시성 | §10 표시용 정의 |
-| R14 capacity·guest 관계 | §5 (동반 포함) |
-| R15 중복 응답 | **해소** — `unique(event_id, user_id)` |
-| R16 마감 후 동작 | §6 `join_event` 내 검증 |
-| R17 취소 시 처리 | Phase 2 (보존 + 취소 배너) |
-| R18 URL XSS | §6, §9 검증 8 |
-| R19 Supabase pause | §10 |
-| R20 모바일 우선 | §4 |
-| R21 표본 부족 | §1 판정 조건 |
-| R22·R23 | §10 |
-| **RLS 근본 충돌** | **해소** — `service_role` 불필요 |
+| 리스크                     | 상태                                       |
+| -------------------------- | ------------------------------------------ |
+| R1 차별점 부재             | §1 포지션 + 정산 1차 편입                  |
+| R2 알림 부재               | Phase 2 카톡 공유 텍스트                   |
+| R3 지표 측정 불가          | §5 `event_views` + 봇 필터                 |
+| R4 쿠키 초과               | **해소** — 로그인 세션                     |
+| R5 인앱 브라우저 쿠키 유실 | **해소** — 계정 기반. 단 N1으로 대체됨     |
+| R6 무인증 쓰기             | **대폭 완화** — 로그인 + `join_event` 상한 |
+| R7 PPR 무력화              | §7 정적 셸 분리                            |
+| R8 타임존                  | §7 `lib/date.ts`                           |
+| R9 개인정보                | §6 정식 동의 + `/privacy` + IP 해시        |
+| R10 명단 공개              | §6 `get_event_participants` (note 미반환)  |
+| R11 status 제약            | §5 `check`                                 |
+| R12 updated_at             | §5 트리거                                  |
+| R13 정원 동시성            | §10 표시용 정의                            |
+| R14 capacity·guest 관계    | §5 (동반 포함)                             |
+| R15 중복 응답              | **해소** — `unique(event_id, user_id)`     |
+| R16 마감 후 동작           | §6 `join_event` 내 검증                    |
+| R17 취소 시 처리           | Phase 2 (보존 + 취소 배너)                 |
+| R18 URL XSS                | §6, §9 검증 8                              |
+| R19 Supabase pause         | §10                                        |
+| R20 모바일 우선            | §4                                         |
+| R21 표본 부족              | §1 판정 조건                               |
+| R22·R23                    | §10                                        |
+| **RLS 근본 충돌**          | **해소** — `service_role` 불필요           |

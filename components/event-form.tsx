@@ -9,22 +9,24 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { eventCreateSchema } from '@/lib/schemas';
 import { formatKST, toISOFromKSTInput } from '@/lib/date';
+import { createClient } from '@/lib/supabase/client';
+import { generatePublicToken } from '@/lib/token';
 
 /**
  * 이벤트 생성 폼 (F001, F002, F006).
  *
  * Server Action을 쓰지 않는다. 이 저장소는 클라이언트 컴포넌트에서 직접
  * 처리하는 방식이고 `components/login-form.tsx`가 그 선례다.
- *
- * Phase 2는 저장하지 않는다. 검증을 통과하면 생성 완료 화면으로 전환해
- * 초대 링크와 공유 문구를 보여주는 데까지가 이번 범위다 (Task 008에서 연동).
  */
 
 /** 필드별 에러 메시지. Zod의 flatten 결과를 담는다. */
 type FieldErrors = Partial<Record<string, string[]>>;
 
-/** Phase 2 동안 쓰는 가짜 토큰. Task 008에서 서버가 발급한다. */
-const PLACEHOLDER_TOKEN = 'abc123XYZ789';
+/** `public_token` unique 충돌 시 재시도 횟수 상한. */
+const MAX_TOKEN_ATTEMPTS = 5;
+
+/** Postgres unique_violation. https://www.postgresql.org/docs/current/errcodes-appendix.html */
+const UNIQUE_VIOLATION = '23505';
 
 /** 단톡방에 붙여넣을 공유 문구 (F006) */
 function buildShareText(title: string, startsAtIso: string, url: string) {
@@ -39,12 +41,16 @@ function buildShareText(title: string, startsAtIso: string, url: string) {
 
 export function EventForm() {
 	const [errors, setErrors] = useState<FieldErrors>({});
+	const [submitError, setSubmitError] = useState<string | null>(null);
+	const [submitting, setSubmitting] = useState(false);
 	const [created, setCreated] = useState<{
+		id: string;
 		title: string;
 		startsAtIso: string;
+		publicToken: string;
 	} | null>(null);
 
-	const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		const formData = new FormData(event.currentTarget);
 		const values = Object.fromEntries(formData) as Record<string, string>;
@@ -56,16 +62,74 @@ export function EventForm() {
 		}
 
 		setErrors({});
+		setSubmitError(null);
+		setSubmitting(true);
+
+		const supabase = createClient();
+		// getUser()도 되지만 더 느리다. getClaims()는 JWT를 로컬에서 검증한다.
+		const { data: session } = await supabase.auth.getClaims();
+		const hostId = session?.claims?.sub;
+		if (!hostId) {
+			setSubmitError('로그인이 필요합니다.');
+			setSubmitting(false);
+			return;
+		}
+
 		// 사용자가 KST 벽시계로 입력한 값을 UTC로 옮긴다.
-		// 저장은 Task 008이고 여기서는 변환 결과만 확인 화면에 쓴다.
+		const startsAtIso = toISOFromKSTInput(result.data.starts_at);
+		const rsvpDeadlineIso = result.data.rsvp_deadline
+			? toISOFromKSTInput(result.data.rsvp_deadline)
+			: null;
+
+		let inserted: { id: string; public_token: string } | null = null;
+		let lastError: { message: string; code?: string } | null = null;
+
+		// public_token unique 충돌은 확률이 낮지만 재현 가능하므로 새 토큰으로 재시도한다.
+		for (let attempt = 0; attempt < MAX_TOKEN_ATTEMPTS; attempt++) {
+			const publicToken = generatePublicToken();
+			const { data, error } = await supabase
+				.from('events')
+				.insert({
+					host_id: hostId,
+					public_token: publicToken,
+					title: result.data.title,
+					description: result.data.description ?? null,
+					starts_at: startsAtIso,
+					location: result.data.location ?? null,
+					location_url: result.data.location_url ?? null,
+					capacity: result.data.capacity ?? null,
+					rsvp_deadline: rsvpDeadlineIso,
+				})
+				.select('id, public_token')
+				.single();
+
+			if (!error) {
+				inserted = data;
+				break;
+			}
+			lastError = error;
+			if (error.code !== UNIQUE_VIOLATION) break;
+		}
+
+		setSubmitting(false);
+
+		if (!inserted) {
+			setSubmitError(
+				lastError?.message ?? '모임을 만들지 못했어요. 다시 시도해 주세요.',
+			);
+			return;
+		}
+
 		setCreated({
+			id: inserted.id,
 			title: result.data.title,
-			startsAtIso: toISOFromKSTInput(result.data.starts_at),
+			startsAtIso,
+			publicToken: inserted.public_token,
 		});
 	};
 
 	if (created) {
-		const inviteUrl = `${typeof window === 'undefined' ? '' : window.location.origin}/e/${PLACEHOLDER_TOKEN}`;
+		const inviteUrl = `${typeof window === 'undefined' ? '' : window.location.origin}/e/${created.publicToken}`;
 		const shareText = buildShareText(
 			created.title,
 			created.startsAtIso,
@@ -101,7 +165,7 @@ export function EventForm() {
 
 				<div className="flex gap-2">
 					<Button asChild>
-						<Link href="/events/placeholder/manage">이벤트 관리로</Link>
+						<Link href={`/events/${created.id}/manage`}>이벤트 관리로</Link>
 					</Button>
 					<Button variant="outline" onClick={() => setCreated(null)}>
 						다시 만들기
@@ -113,6 +177,8 @@ export function EventForm() {
 
 	return (
 		<form onSubmit={handleSubmit} className="flex flex-col gap-5">
+			{submitError && <p className="text-destructive text-sm">{submitError}</p>}
+
 			<Field label="제목" htmlFor="title" errors={errors.title} required>
 				<Input id="title" name="title" placeholder="주말 한강 러닝" />
 			</Field>
@@ -179,8 +245,12 @@ export function EventForm() {
 				<Input id="rsvp_deadline" name="rsvp_deadline" type="datetime-local" />
 			</Field>
 
-			<Button type="submit" className="w-full sm:w-auto sm:self-start">
-				만들기
+			<Button
+				type="submit"
+				disabled={submitting}
+				className="w-full sm:w-auto sm:self-start"
+			>
+				{submitting ? '만드는 중...' : '만들기'}
 			</Button>
 		</form>
 	);
