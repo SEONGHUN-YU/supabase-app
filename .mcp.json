@@ -19,9 +19,9 @@
 		},
 		"shrimp-task-manager": {
 			"command": "node",
-			"args": ["C:/Users/LENOVO/Desktop/mcp-shrimp-task-manager/dist/index.js"],
+			"args": ["/Users/seonghun/Desktop/mcp-shrimp-task-manager/dist/index.js"],
 			"env": {
-				"DATA_DIR": "C:/Users/LENOVO/Desktop/supabase-app/shrimp_data",
+				"DATA_DIR": "/Users/seonghun/Desktop/supabase-app/shrimp_data",
 				"TEMPLATES_USE": "en",
 				"ENABLE_GUI": "false"
 			}
