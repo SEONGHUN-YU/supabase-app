@@ -434,6 +434,253 @@
       "analysisResult": "Phase 2: UI/UX 완성 (더미 데이터 활용). docs/ROADMAP.md의 Task 004-006을 코드베이스 실측 후 등록한다.\n\n실측으로 확인된 사실:\n- app/globals.css에 shadcn 테마 토큰이 통째로 없다. @theme 블록도 :root/.dark 변수도 없고 CSS 리셋(meyerweb, 62줄)만 있다. components.json은 cssVariables:true인데 --background, --foreground, --primary 등이 미정의다. 브라우저 실측 결과 Login 버튼 배경이 rgba(0,0,0,0) 투명이고 다크 모드도 동작할 수 없다. Phase 2 전체가 이 위에 세워지므로 Task 004의 첫 단계로 복구하기로 확정했다.\n- shadcn 설치됨: badge, button, card, checkbox, dropdown-menu, input, label (7개). 미설치: tabs, dialog, select, textarea, switch, sonner\n- Task 002 산출물이 전부 준비되어 있다. types/database.ts(Event, Participant, Announcement, Settlement, SettlementShare, EventView, EventPreview, EventSummary, ParticipantPublic, EventStatus, RsvpStatus), lib/date.ts(formatKST, toISOFromKSTInput, toKSTInputValue), lib/url.ts(isSafeUrl, safeHref), lib/fixtures.ts(makeEvent, makeParticipant, makeAnnouncement, makeSettlement, makeSettlementShare, sampleParticipants, countGoing, sampleDashboard)\n- 자리표시자 페이지 4개는 14-16줄짜리 껍데기다. app/dashboard, app/events/new, app/events/[id]/manage, app/e/[token]\n- 헤더·푸터는 app/layout.tsx에 한 번만 배치되어 있다. 개별 페이지에서 다시 그리면 안 된다\n\n확정된 결정:\n1. 테마 토큰 복구를 Task 004의 첫 단계로 넣는다 (별도 작업으로 분리하지 않음)\n2. 더미 데이터는 페이지에서 lib/fixtures.ts를 직접 호출한다. 조회 함수 계층을 만들지 않는다 — Task 008에서 호출 한 줄만 교체되어 경계가 명확하다\n\n저장소 제약: Next.js 16 App Router, 미들웨어는 proxy.ts, cacheComponents:true(동적 데이터를 읽는 컴포넌트는 반드시 Suspense 안에), getClaims() 사용, Supabase 클라이언트를 모듈 최상위에 담지 않음, Server Action 신규 도입 금지, Tailwind v4(tailwind.config 없음, CSS-first), components/ui/**는 shadcn CLI 생성물이라 직접 수정하지 않음, Prettier 탭 들여쓰기 폭2 작은따옴표 arrowParens avoid, import는 @/ 별칭, 주석과 문서는 한국어. 모든 날짜 출력은 예외 없이 lib/date.ts의 formatKST를 거친다. location_url을 href에 넣기 전 safeHref를 거친다(R18).\n\nPhase 2는 DB를 건드리지 않는다. apply_migration 호출 금지. 마이그레이션은 Task 007이다.",
       "summary": "초대 페이지를 정적 셸 + 세션 의존 3개 영역으로 나눠 완성했다.\n\napp/e/[token]/page.tsx는 세션을 읽지 않는다. 이벤트 헤더(제목·formatKST·safeHref 지도 링크·AttendanceSummary·응답 마감), 공지, StatusBanner, 개인정보 안내가 전부 프리렌더 셸에 남는다. params도 읽지 않는다. 세션을 읽는 RsvpSection·AttendeeSection·SettlementSection은 app/e/[token]/sections.tsx로 분리해 각각 개별 <Suspense>로 감쌌다. 빌드 출력에서 /e/[token]이 ◐(Partial Prerender)로 확인됐다.\n\n마감·취소 판정을 정적 셸에 둔 것이 핵심 결정이다. status !== 'open' 이거나 rsvp_deadline이 지났으면 Suspense 자체를 렌더하지 않아 응답 차단 화면까지 캐시된다.\n\nR10: 명단은 samplePublicParticipants()가 돌려주는 ParticipantPublic만 받는다. note를 렌더하면 컴파일이 깨진다. 비로그인 페이지 소스에 note 문자열이 없음을 실측 확인. 본인 응답 폼에 자기 한마디가 채워지는 것은 R10 대상이 아니다.\nR18: location_url은 safeHref를 거친다.\n\n실측 검증 (Playwright MCP 미연결 → npx 캐시의 playwright-core 1.61.1 + 설치된 chromium-1228로 직접 구동):\n- 375x667에서 scrollWidth == clientWidth == 375, 가로 오버플로 요소 0개\n- 제목 top 64px, 응답 진입점(카카오 버튼) top 559px — 스크롤 없이 한 화면에 정보 확인과 응답이 모두 들어온다\n- console warning/error 0건. 두 요청의 HTML이 self.__next_r(요청 ID)를 빼면 바이트 동일 — 하이드레이션 불일치 원인 없음\n- 동반 11명·한마디 201자가 한국어 메시지 두 건으로 동시에 거부되고, 유효 입력은 응답 완료 카드로 전환됨\n- closed/cancelled 각각에서 StatusBanner 노출 + 응답 차단 확인\n- rsvpSchema 경계값: 10명/200자 통과, 11명/201자 거부\n\n작업 중 고친 것 두 가지.\n1) 폼에 noValidate를 붙였다. min/max 속성 때문에 브라우저 기본 검증이 submit을 먼저 가로채 우리 메시지가 뜨지 않고 뒤 필드(한마디) 에러는 아예 표시되지 않았다. 카톡 인앱 웹뷰마다 기본 툴팁이 달라 Zod가 검증을 소유해야 한다. 실측으로 발견했다.\n2) 카카오·구글 버튼을 h-9(36px)에서 h-11(44px)로 올렸다. 이 페이지의 주 진입점이고 사용자가 사실상 전량 모바일이다. Task 003 산출물이라 범위를 넘지만 모바일 최소 터치 타겟 요건이 이 작업의 수락 기준이다.\n\nFIXTURE_NOW를 기준 이벤트의 이틀 전으로 옮겼다. makeEvent()의 rsvp_deadline이 시작 하루 전이라 기존 값에서는 마감이 이미 지나 응답 폼 대신 마감 안내만 렌더됐다. 대시보드의 다가오는/지난 분류 결과는 바뀌지 않는다.\n\n남은 것: 실제 로그인 상태 검증은 isSignedIn()을 임시로 true로 고정해 확인했고 원복했다. 실기기 카톡 인앱 브라우저 검증은 Task 013이다.",
       "completedAt": "2026-08-05T08:07:15.436Z"
+    },
+    {
+      "id": "a0ee9600-8511-4d9a-8533-509070455639",
+      "name": "Task 007: 데이터베이스 스키마 및 보안 정책 구축",
+      "description": "docs/MVP-PLAN.md §5-6의 DDL·RLS·RPC 원문을 apply_migration으로 적용한다. 적용 전 list_tables로 profiles 테이블만 있는 그린필드 상태를 재확인한다. 원문에 없는 announcements/settlements/settlement_shares/event_views의 RLS 정책 공백을 보완 설계해 추가한다.",
+      "notes": "DDL은 apply_migration만 사용, execute_sql 금지(조회용 read-only 확인에는 execute_sql 가능). 3개 마이그레이션으로 분할하는 이유는 스키마→정책→함수 순서 의존성 때문이다. RLS 보완 정책은 §6 원문의 변경이 아니라 원문이 다루지 않은 4개 테이블에 대한 순수 추가다.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-08-06T02:49:38.168Z",
+      "updatedAt": "2026-08-06T02:49:38.168Z",
+      "relatedFiles": [
+        {
+          "path": "docs/MVP-PLAN.md",
+          "type": "REFERENCE",
+          "description": "DDL·RLS·RPC 원문(157-341행)"
+        },
+        {
+          "path": "types/database.ts",
+          "type": "REFERENCE",
+          "description": "generate_typescript_types 결과와 대조할 기존 타입 정의"
+        }
+      ],
+      "implementationGuide": "1) apply_migration으로 001_core_schema: MVP-PLAN.md:157-234의 6테이블(events,participants,announcements,event_views,settlements,settlement_shares)+4인덱스+touch_updated_at 트리거를 원문 그대로 생성.\n2) apply_migration으로 002_rls_policies: MVP-PLAN.md:296-316의 events_select/events_write/participants_host/participants_self 원문 그대로 + 보완 정책 추가 — announcements_host/settlements_host/settlement_shares_host(participants_host와 동일 패턴: exists(select 1 from events where host_id=auth.uid())), settlements_participant_select/settlement_shares_self(참여자 본인 행만 select, participant_id가 본인 소유인지 확인), event_views는 insert만 to anon,authenticated with check(true).\n3) apply_migration으로 003_rpc_functions: MVP-PLAN.md:246-338의 get_event_preview/join_event/get_event_participants 원문 그대로 + revoke all from public, grant execute to anon/authenticated(get_event_preview), authenticated(join_event, get_event_participants).\n4) generate_typescript_types 실행 후 types/database.ts의 7개 인터페이스와 필드명·nullable 여부 대조(파생 타입 ParticipantPublic/EventPreview/EventSummary는 수기 유지 대상이라 대조 제외).\n5) get_advisors(security) 실행해 경고 0건 확인.",
+      "verificationCriteria": "list_tables로 6개 신규 테이블+RLS enabled 확인, get_advisors security 경고 0건, generate_typescript_types 결과가 types/database.ts 필드명과 일치.",
+      "analysisResult": "Phase 3 핵심 기능 구현의 목표는 docs/MVP-PLAN.md §5-6에 확정된 스키마·RLS·RPC 설계를 apply_migration으로 그대로 적용하고, Phase 2에서 lib/fixtures.ts로 렌더하던 더미 페이지 6곳을 실제 Supabase 쿼리로 교체하는 것이다. 원칙: (1) DDL은 apply_migration만 사용, execute_sql 금지. (2) Server Action을 도입하지 않고 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 기존 관례(login-form.tsx)를 따른다. (3) Supabase 클라이언트를 모듈 최상위 변수에 저장하지 않는다. (4) cacheComponents:true 환경이라 동적 데이터를 읽는 컴포넌트는 Suspense 경계 안에 있어야 하고 경계는 최소 단위로 좁게 잡는다(단 manage 페이지는 페이지 전체가 host 인증 의존이라 예외적으로 경계 하나를 넓게 잡는다 — 006의 '좁게' 원칙이 존재하는 이유인 정적 셸 캐시 이점이 로그인 전용 페이지엔 해당하지 않기 때문). (5) note 컬럼은 get_event_participants 반환에서 제외되어야 하며(R10) ParticipantPublic 타입의 컴파일 타임 차단을 우회하지 않는다. (6) location_url은 http/https 스킴만 허용(R18, isSafeUrl 재사용). (7) lib/fixtures.ts는 Task 011까지 모든 호출부가 교체된 뒤에만 삭제한다. (8) types/database.ts, lib/schemas.ts는 이미 DDL과 정합하므로 수정 없이 재사용한다. (9) 대시보드의 hosted/joined 목록은 going_count 소싱 방식이 비대칭이다 — hosted는 이미 RLS로 열람 가능한 participants를 직접 집계하고, joined는 다른 참여자 행을 볼 권한이 없으므로 공개 함수인 get_event_preview를 재사용한다. (10) token→event_id 해석 로직은 009·011에서 중복되므로 008에서 공용 헬퍼로 만들어 공유한다."
+    },
+    {
+      "id": "ab49e99d-e742-4a2f-8bd8-af2187c82f24",
+      "name": "Task 008: 이벤트 생성·조회 연동",
+      "description": "이벤트 생성 폼을 실제 저장으로 교체하고 대시보드·관리·초대 페이지의 조회를 실제 Supabase 쿼리로 바꾼다. token→event_id 해석과 base62 토큰 생성을 공용 유틸로 만들어 이후 Task가 재사용하게 한다.",
+      "notes": "Server Action 도입 금지, 모듈 최상위 변수에 클라이언트 저장 금지. hosted/joined의 going_count 소싱 방식이 의도적으로 비대칭임(참고: globalAnalysisResult 9번).",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a0ee9600-8511-4d9a-8533-509070455639"
+        }
+      ],
+      "createdAt": "2026-08-06T02:49:38.168Z",
+      "updatedAt": "2026-08-06T02:49:38.168Z",
+      "relatedFiles": [
+        {
+          "path": "components/event-form.tsx",
+          "type": "TO_MODIFY",
+          "description": "handleSubmit을 실제 insert로 교체, PLACEHOLDER_TOKEN 제거",
+          "lineStart": 27,
+          "lineEnd": 65
+        },
+        {
+          "path": "app/dashboard/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "sampleDashboard() 제거, hosted/joined 분리 쿼리",
+          "lineStart": 59,
+          "lineEnd": 64
+        },
+        {
+          "path": "app/events/[id]/manage/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "params 독출 + Suspense 경계 + notFound",
+          "lineStart": 30,
+          "lineEnd": 64
+        },
+        {
+          "path": "app/e/[token]/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "token 독출, get_event_preview로 정적 셸 교체"
+        },
+        {
+          "path": "lib/token.ts",
+          "type": "CREATE",
+          "description": "base62 12자 public_token 생성"
+        },
+        {
+          "path": "lib/event-lookup.ts",
+          "type": "CREATE",
+          "description": "token→event_id 공용 해석 함수"
+        },
+        {
+          "path": "lib/fixtures.ts",
+          "type": "REFERENCE",
+          "description": "교체 대상이 되는 더미 함수 계약"
+        }
+      ],
+      "implementationGuide": "1) lib/token.ts 신설: crypto.getRandomValues 기반 base62 12자 생성 함수.\n2) components/event-form.tsx의 handleSubmit(47-65행): PLACEHOLDER_TOKEN(27행) 제거, 브라우저 createClient()(lib/supabase/client.ts)로 .from('events').insert({...,public_token}), Postgres unique 위반(23505) 시 새 토큰으로 최대 5회 재시도.\n3) lib/event-lookup.ts 신설: resolveEventId(token) — .from('events').select('id,show_names').eq('public_token',token).maybeSingle() 래핑. 009·011에서 재사용.\n4) app/dashboard/page.tsx(59-64행): async 서버 컴포넌트로 전환. hosted는 events.eq('host_id',uid)로 조회 후 참여자 목록을 별도 쿼리로 집계(participants.select('event_id,status,guest_count').in('event_id',ids) 후 클라이언트에서 countGoing과 동일한 로직으로 합산 — get_event_preview를 쓰지 않는다, host는 RLS로 이미 열람 가능하므로). joined는 participants.select('event_id, events(*)').eq('user_id',uid) 임베디드 조인 후 각 이벤트의 going_count는 rpc('get_event_preview',{p_token:event.public_token}) 병렬 호출로 채운다(참여자는 다른 참여자 행을 볼 권한이 없어 공개 함수 재사용이 유일한 경로).\n5) app/events/[id]/manage/page.tsx: params를 읽는 새 async ManageEventContent(params) 컴포넌트로 로직을 옮기고 page.tsx는 이를 단일 Suspense로 감쌈(페이지 전체가 host 인증 의존이라 경계를 좁힐 정적 영역이 없음). event.host_id !== uid면 notFound() import from next/navigation.\n6) app/e/[token]/page.tsx: token을 읽어야 하는 헤더·공지 렌더를 새 async 컴포넌트(예: app/e/[token]/shell.tsx)로 분리해 Suspense로 감싸고 get_event_preview(token)으로 makeEvent()/makeAnnouncement() 대체. 기존 RsvpSection(121행)·AttendeeSection(141행)·SettlementSection(153행) Suspense 3곳은 그대로 유지.",
+      "verificationCriteria": "이벤트 생성 후 실제 events 행과 고유 public_token 생성 확인, 대시보드 hosted/joined가 서로 다른 목록을 보여줌, manage 페이지에서 타인 이벤트 접근 시 404, 초대 페이지가 실제 이벤트 제목·일시를 비로그인으로 표시, npm run build 통과(Suspense 경계 누락 시 빌드 실패로 검증됨).",
+      "analysisResult": "Phase 3 핵심 기능 구현의 목표는 docs/MVP-PLAN.md §5-6에 확정된 스키마·RLS·RPC 설계를 apply_migration으로 그대로 적용하고, Phase 2에서 lib/fixtures.ts로 렌더하던 더미 페이지 6곳을 실제 Supabase 쿼리로 교체하는 것이다. 원칙: (1) DDL은 apply_migration만 사용, execute_sql 금지. (2) Server Action을 도입하지 않고 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 기존 관례(login-form.tsx)를 따른다. (3) Supabase 클라이언트를 모듈 최상위 변수에 저장하지 않는다. (4) cacheComponents:true 환경이라 동적 데이터를 읽는 컴포넌트는 Suspense 경계 안에 있어야 하고 경계는 최소 단위로 좁게 잡는다(단 manage 페이지는 페이지 전체가 host 인증 의존이라 예외적으로 경계 하나를 넓게 잡는다 — 006의 '좁게' 원칙이 존재하는 이유인 정적 셸 캐시 이점이 로그인 전용 페이지엔 해당하지 않기 때문). (5) note 컬럼은 get_event_participants 반환에서 제외되어야 하며(R10) ParticipantPublic 타입의 컴파일 타임 차단을 우회하지 않는다. (6) location_url은 http/https 스킴만 허용(R18, isSafeUrl 재사용). (7) lib/fixtures.ts는 Task 011까지 모든 호출부가 교체된 뒤에만 삭제한다. (8) types/database.ts, lib/schemas.ts는 이미 DDL과 정합하므로 수정 없이 재사용한다. (9) 대시보드의 hosted/joined 목록은 going_count 소싱 방식이 비대칭이다 — hosted는 이미 RLS로 열람 가능한 participants를 직접 집계하고, joined는 다른 참여자 행을 볼 권한이 없으므로 공개 함수인 get_event_preview를 재사용한다. (10) token→event_id 해석 로직은 009·011에서 중복되므로 008에서 공용 헬퍼로 만들어 공유한다."
+    },
+    {
+      "id": "3ba9954a-03f7-4440-8534-7fc9c7775b69",
+      "name": "Task 009: 참석 응답(RSVP) 기능 구현",
+      "description": "join_event RPC로 참석 응답 저장·수정을 연동하고, 명단 조회를 get_event_participants RPC로 교체한다.",
+      "notes": "get_event_participants가 note를 반환하지 않으므로(R10) 컴파일 타임에 ParticipantPublic 타입으로 이미 차단됨 — 우회 금지.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "ab49e99d-e742-4a2f-8bd8-af2187c82f24"
+        }
+      ],
+      "createdAt": "2026-08-06T02:49:38.169Z",
+      "updatedAt": "2026-08-06T02:49:38.169Z",
+      "relatedFiles": [
+        {
+          "path": "components/rsvp-form.tsx",
+          "type": "TO_MODIFY",
+          "description": "handleSubmit을 join_event RPC 호출로 교체",
+          "lineStart": 57,
+          "lineEnd": 77
+        },
+        {
+          "path": "app/e/[token]/sections.tsx",
+          "type": "TO_MODIFY",
+          "description": "RsvpSection·AttendeeSection 실제 쿼리 연동",
+          "lineStart": 49,
+          "lineEnd": 125
+        },
+        {
+          "path": "lib/event-lookup.ts",
+          "type": "DEPENDENCY",
+          "description": "Task 008에서 만든 token→event_id 해석 재사용"
+        }
+      ],
+      "implementationGuide": "1) components/rsvp-form.tsx의 handleSubmit(57-77행): rpc('join_event',{p_token,p_status,p_guest_count,p_note}) 호출로 교체, 에러는 RPC의 raise exception 메시지를 그대로 표시.\n2) app/e/[token]/sections.tsx의 RsvpSection(49-79행): lib/event-lookup.ts의 resolveEventId 재사용, event_id가 있으면 participants.select('status,guest_count,note').eq('event_id',id).eq('user_id',uid).maybeSingle()로 existing 채움, 없으면 첫 응답 모드(makeParticipant 더미 제거).\n3) AttendeeSection(85-125행): samplePublicParticipants() 제거, event_id 해석 후 rpc('get_event_participants',{p_event_id}), event_id를 못 구하면(미응답 상태) '참석 응답 후 확인할 수 있어요' 안내로 대체.\n4) 로그인 유도(59-60행 SocialAuthButtons next={invitePath})는 변경 불필요 — 기존 next prop 흐름이 이미 올바르게 연결되어 있음.",
+      "verificationCriteria": "새 계정으로 응답 저장 후 participants 행 생성 확인, 재접속 시 수정 모드로 기존 응답 표시, 마감된 이벤트에서 join_event가 예외를 던져 저장 차단, 명단에 note가 절대 렌더되지 않음(런타임 확인).",
+      "analysisResult": "Phase 3 핵심 기능 구현의 목표는 docs/MVP-PLAN.md §5-6에 확정된 스키마·RLS·RPC 설계를 apply_migration으로 그대로 적용하고, Phase 2에서 lib/fixtures.ts로 렌더하던 더미 페이지 6곳을 실제 Supabase 쿼리로 교체하는 것이다. 원칙: (1) DDL은 apply_migration만 사용, execute_sql 금지. (2) Server Action을 도입하지 않고 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 기존 관례(login-form.tsx)를 따른다. (3) Supabase 클라이언트를 모듈 최상위 변수에 저장하지 않는다. (4) cacheComponents:true 환경이라 동적 데이터를 읽는 컴포넌트는 Suspense 경계 안에 있어야 하고 경계는 최소 단위로 좁게 잡는다(단 manage 페이지는 페이지 전체가 host 인증 의존이라 예외적으로 경계 하나를 넓게 잡는다 — 006의 '좁게' 원칙이 존재하는 이유인 정적 셸 캐시 이점이 로그인 전용 페이지엔 해당하지 않기 때문). (5) note 컬럼은 get_event_participants 반환에서 제외되어야 하며(R10) ParticipantPublic 타입의 컴파일 타임 차단을 우회하지 않는다. (6) location_url은 http/https 스킴만 허용(R18, isSafeUrl 재사용). (7) lib/fixtures.ts는 Task 011까지 모든 호출부가 교체된 뒤에만 삭제한다. (8) types/database.ts, lib/schemas.ts는 이미 DDL과 정합하므로 수정 없이 재사용한다. (9) 대시보드의 hosted/joined 목록은 going_count 소싱 방식이 비대칭이다 — hosted는 이미 RLS로 열람 가능한 participants를 직접 집계하고, joined는 다른 참여자 행을 볼 권한이 없으므로 공개 함수인 get_event_preview를 재사용한다. (10) token→event_id 해석 로직은 009·011에서 중복되므로 008에서 공용 헬퍼로 만들어 공유한다."
+    },
+    {
+      "id": "ba98d28a-6873-4fe3-83f7-247c63f8d193",
+      "name": "Task 010: 주최자 도구 및 공지·공유 구현",
+      "description": "공지 등록, 참석자 명단 공개 토글, 이벤트 상태 전환, 참여자 수동 추가/수정/삭제, 이벤트 복제, 카톡 공유 문구 3종을 실제 저장으로 연동한다.",
+      "notes": "Server Action 미사용 기조상 client mutation 후 router.refresh()로 서버 컴포넌트를 재조회하는 방식을 쓴다. 신규 zod 스키마를 만들지 않고 rsvpSchema를 재사용한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "ab49e99d-e742-4a2f-8bd8-af2187c82f24"
+        }
+      ],
+      "createdAt": "2026-08-06T02:49:38.169Z",
+      "updatedAt": "2026-08-06T02:49:38.169Z",
+      "relatedFiles": [
+        {
+          "path": "components/host-controls.tsx",
+          "type": "TO_MODIFY",
+          "description": "AnnouncementForm/ShowNamesToggle/StatusSelect/PaymentCheck 실제 연동",
+          "lineStart": 1,
+          "lineEnd": 147
+        },
+        {
+          "path": "components/event-form.tsx",
+          "type": "TO_MODIFY",
+          "description": "duplicate 쿼리 파라미터 처리 및 프리필 추가"
+        },
+        {
+          "path": "app/events/[id]/manage/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "참여자 추가/수정/삭제 폼과 공유 CopyButton 추가"
+        },
+        {
+          "path": "lib/share-text.ts",
+          "type": "CREATE",
+          "description": "공유 문구 3종 생성 함수"
+        },
+        {
+          "path": "lib/schemas.ts",
+          "type": "REFERENCE",
+          "description": "rsvpSchema 재사용 대상"
+        }
+      ],
+      "implementationGuide": "1) components/host-controls.tsx 전체에 eventId prop 추가.\n2) AnnouncementForm(26-62행): 성공 시 .from('announcements').insert({event_id,body}) 후 useRouter().refresh()(next/navigation)로 갱신.\n3) ShowNamesToggle(64-82행)/StatusSelect(90-113행): onCheckedChange/onValueChange에서 events.update({...}).eq('id',eventId) 후 router.refresh(), 실패 시 로컬 state 롤백 + sonner toast(copy-button.tsx 패턴 재사용).\n4) 참여자 직접 추가: manage 페이지의 '참여자 직접 추가' 버튼에 폼 연결, lib/schemas.ts의 rsvpSchema(display_name 포함) 재사용, host가 participants_host 정책 하에 .insert({event_id,user_id:null,display_name,status,guest_count,note}) 직접 호출. 수정/삭제도 동일 정책으로 .update()/.delete().\n5) 이벤트 복제: '이 모임 복제' 링크를 /events/new?duplicate=<eventId>로 변경, event-form.tsx 마운트 시 host 소유 이벤트 조회 후 lib/date.ts의 toKSTInputValue()로 starts_at/rsvp_deadline 프리필.\n6) lib/share-text.ts 신설: event-form.tsx의 buildShareText(30-38행)를 승격하고 공지 추가용·정산 요청용 변형 2개 추가, manage 페이지에 CopyButton 2개 추가해 최신 집계 반영.",
+      "verificationCriteria": "공지 등록 후 목록에 즉시 반영, 명단 공개 토글이 새로고침 후에도 유지, 타인 이벤트 manage 접근 차단(Task 008에서 만든 notFound 재확인), javascript: URL 입력 시 거부, 공지 추가 후 공유 문구에 최신 인원 수 반영.",
+      "analysisResult": "Phase 3 핵심 기능 구현의 목표는 docs/MVP-PLAN.md §5-6에 확정된 스키마·RLS·RPC 설계를 apply_migration으로 그대로 적용하고, Phase 2에서 lib/fixtures.ts로 렌더하던 더미 페이지 6곳을 실제 Supabase 쿼리로 교체하는 것이다. 원칙: (1) DDL은 apply_migration만 사용, execute_sql 금지. (2) Server Action을 도입하지 않고 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 기존 관례(login-form.tsx)를 따른다. (3) Supabase 클라이언트를 모듈 최상위 변수에 저장하지 않는다. (4) cacheComponents:true 환경이라 동적 데이터를 읽는 컴포넌트는 Suspense 경계 안에 있어야 하고 경계는 최소 단위로 좁게 잡는다(단 manage 페이지는 페이지 전체가 host 인증 의존이라 예외적으로 경계 하나를 넓게 잡는다 — 006의 '좁게' 원칙이 존재하는 이유인 정적 셸 캐시 이점이 로그인 전용 페이지엔 해당하지 않기 때문). (5) note 컬럼은 get_event_participants 반환에서 제외되어야 하며(R10) ParticipantPublic 타입의 컴파일 타임 차단을 우회하지 않는다. (6) location_url은 http/https 스킴만 허용(R18, isSafeUrl 재사용). (7) lib/fixtures.ts는 Task 011까지 모든 호출부가 교체된 뒤에만 삭제한다. (8) types/database.ts, lib/schemas.ts는 이미 DDL과 정합하므로 수정 없이 재사용한다. (9) 대시보드의 hosted/joined 목록은 going_count 소싱 방식이 비대칭이다 — hosted는 이미 RLS로 열람 가능한 participants를 직접 집계하고, joined는 다른 참여자 행을 볼 권한이 없으므로 공개 함수인 get_event_preview를 재사용한다. (10) token→event_id 해석 로직은 009·011에서 중복되므로 008에서 공용 헬퍼로 만들어 공유한다."
+    },
+    {
+      "id": "797f1186-7f41-4ffd-b193-6b832dcb563c",
+      "name": "Task 011: 정산 기능 구현",
+      "description": "정산 생성과 N빵 분배, 입금 체크, 참여자 본인 몫 확인을 실제 저장으로 연동한다. 이 Task 완료 시점에 lib/fixtures.ts의 모든 호출부가 교체되므로 파일을 삭제한다.",
+      "notes": "settlement_shares 배치 insert 실패 시 부분 삽입 위험이 있으나, 이 저장소가 service_role/트랜잭션 RPC를 최소화하는 기조이므로 실패 시 toast 안내 + 재시도 버튼으로 대응한다(MVP 범위).",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "ab49e99d-e742-4a2f-8bd8-af2187c82f24"
+        }
+      ],
+      "createdAt": "2026-08-06T02:49:38.169Z",
+      "updatedAt": "2026-08-06T02:49:38.169Z",
+      "relatedFiles": [
+        {
+          "path": "components/settlement-form.tsx",
+          "type": "CREATE",
+          "description": "정산 생성 폼"
+        },
+        {
+          "path": "components/host-controls.tsx",
+          "type": "TO_MODIFY",
+          "description": "PaymentCheck 실제 update 연동",
+          "lineStart": 115,
+          "lineEnd": 147
+        },
+        {
+          "path": "app/e/[token]/sections.tsx",
+          "type": "TO_MODIFY",
+          "description": "SettlementSection 실제 조회",
+          "lineStart": 133,
+          "lineEnd": 171
+        },
+        {
+          "path": "app/events/[id]/manage/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "입금 요약 표시"
+        },
+        {
+          "path": "lib/fixtures.ts",
+          "type": "OTHER",
+          "description": "이 Task 완료 후 삭제 대상"
+        }
+      ],
+      "implementationGuide": "1) components/settlement-form.tsx 신설(client): lib/schemas.ts의 settlementSchema 재사용, 제출 시 .from('settlements').insert(...) 후 현재 going 참석자 목록으로 shareAmount=Math.floor(total/goingCount)(manage/page.tsx 71행의 기존 공식 재사용, 나머지는 host 귀속·행 미생성) 계산해 settlement_shares 배치 insert(순차 client insert, 별도 RPC 불필요).\n2) components/host-controls.tsx의 PaymentCheck(115-147행): shareId prop 추가, onCheckedChange에서 .update({paid,paid_at}).eq('id',shareId), 실패 시 로컬 state 롤백.\n3) manage 페이지: settlement_shares를 서버에서 조회해 미입금 인원·금액 요약 표시.\n4) app/e/[token]/sections.tsx의 SettlementSection(133-171행): lib/event-lookup.ts의 resolveEventId로 event_id 해석 후 본인 participant_id로 .from('settlement_shares').select('*, settlements(*)').eq('participant_id',myId) 조회(Task 007에서 추가한 settlement_shares_self/settlements_participant_select 정책 필요), 정산 없으면 EmptyState.\n5) lib/share-text.ts의 정산용 함수를 manage 페이지에서 호출.\n6) 모든 페이지의 lib/fixtures.ts import를 제거했는지 확인 후 파일 삭제.",
+      "verificationCriteria": "참석자 5명 이벤트로 정산 생성 시 분담 금액 합계가 총액과 일치(1원 나머지는 host 귀속), 전원 입금 체크 완주, 참여자 화면에 본인 몫·입금 여부 반영, lib/fixtures.ts 삭제 후 npm run build·tsc --noEmit 통과.",
+      "analysisResult": "Phase 3 핵심 기능 구현의 목표는 docs/MVP-PLAN.md §5-6에 확정된 스키마·RLS·RPC 설계를 apply_migration으로 그대로 적용하고, Phase 2에서 lib/fixtures.ts로 렌더하던 더미 페이지 6곳을 실제 Supabase 쿼리로 교체하는 것이다. 원칙: (1) DDL은 apply_migration만 사용, execute_sql 금지. (2) Server Action을 도입하지 않고 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 기존 관례(login-form.tsx)를 따른다. (3) Supabase 클라이언트를 모듈 최상위 변수에 저장하지 않는다. (4) cacheComponents:true 환경이라 동적 데이터를 읽는 컴포넌트는 Suspense 경계 안에 있어야 하고 경계는 최소 단위로 좁게 잡는다(단 manage 페이지는 페이지 전체가 host 인증 의존이라 예외적으로 경계 하나를 넓게 잡는다 — 006의 '좁게' 원칙이 존재하는 이유인 정적 셸 캐시 이점이 로그인 전용 페이지엔 해당하지 않기 때문). (5) note 컬럼은 get_event_participants 반환에서 제외되어야 하며(R10) ParticipantPublic 타입의 컴파일 타임 차단을 우회하지 않는다. (6) location_url은 http/https 스킴만 허용(R18, isSafeUrl 재사용). (7) lib/fixtures.ts는 Task 011까지 모든 호출부가 교체된 뒤에만 삭제한다. (8) types/database.ts, lib/schemas.ts는 이미 DDL과 정합하므로 수정 없이 재사용한다. (9) 대시보드의 hosted/joined 목록은 going_count 소싱 방식이 비대칭이다 — hosted는 이미 RLS로 열람 가능한 participants를 직접 집계하고, joined는 다른 참여자 행을 볼 권한이 없으므로 공개 함수인 get_event_preview를 재사용한다. (10) token→event_id 해석 로직은 009·011에서 중복되므로 008에서 공용 헬퍼로 만들어 공유한다."
+    },
+    {
+      "id": "c11a2d1e-6aba-4069-a963-cace91d05a40",
+      "name": "Task 011-1: 핵심 기능 통합 테스트",
+      "description": "Playwright MCP로 전체 사용자 플로우와 권한 경계, 엣지 케이스를 검증한다.",
+      "notes": "테스트 프레임워크가 없으므로 Playwright MCP가 유일한 검증 수단이다. execute_sql은 조회 전용으로만 사용.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "3ba9954a-03f7-4440-8534-7fc9c7775b69"
+        },
+        {
+          "taskId": "ba98d28a-6873-4fe3-83f7-247c63f8d193"
+        },
+        {
+          "taskId": "797f1186-7f41-4ffd-b193-6b832dcb563c"
+        }
+      ],
+      "createdAt": "2026-08-06T02:49:38.169Z",
+      "updatedAt": "2026-08-06T02:49:38.169Z",
+      "relatedFiles": [
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "Task 011-1 시나리오 원안(161-166행)"
+        }
+      ],
+      "implementationGuide": "1) 전체 플로우: 주최자 로그인→이벤트 생성→링크 복사→새 계정으로 응답→공지 추가→정산 생성→입금 체크.\n2) 권한 경계: 미참여 계정의 AttendeeSection 비노출, 참여자 화면에 note 미노출(런타임), 타인 주최 이벤트 manage 접근 시 notFound.\n3) 엣지 케이스: rsvp_deadline 직후 응답 시 join_event 예외 메시지 확인, 존재하지 않는 public_token으로 get_event_preview 호출 시 빈 결과 처리, 동일 사용자 중복 응답이 on conflict do update로 participants에 단일 행만 유지되는지 execute_sql(읽기 전용)로 직접 확인.",
+      "verificationCriteria": "위 시나리오 전체가 수동 개입 없이 통과.",
+      "analysisResult": "Phase 3 핵심 기능 구현의 목표는 docs/MVP-PLAN.md §5-6에 확정된 스키마·RLS·RPC 설계를 apply_migration으로 그대로 적용하고, Phase 2에서 lib/fixtures.ts로 렌더하던 더미 페이지 6곳을 실제 Supabase 쿼리로 교체하는 것이다. 원칙: (1) DDL은 apply_migration만 사용, execute_sql 금지. (2) Server Action을 도입하지 않고 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 기존 관례(login-form.tsx)를 따른다. (3) Supabase 클라이언트를 모듈 최상위 변수에 저장하지 않는다. (4) cacheComponents:true 환경이라 동적 데이터를 읽는 컴포넌트는 Suspense 경계 안에 있어야 하고 경계는 최소 단위로 좁게 잡는다(단 manage 페이지는 페이지 전체가 host 인증 의존이라 예외적으로 경계 하나를 넓게 잡는다 — 006의 '좁게' 원칙이 존재하는 이유인 정적 셸 캐시 이점이 로그인 전용 페이지엔 해당하지 않기 때문). (5) note 컬럼은 get_event_participants 반환에서 제외되어야 하며(R10) ParticipantPublic 타입의 컴파일 타임 차단을 우회하지 않는다. (6) location_url은 http/https 스킴만 허용(R18, isSafeUrl 재사용). (7) lib/fixtures.ts는 Task 011까지 모든 호출부가 교체된 뒤에만 삭제한다. (8) types/database.ts, lib/schemas.ts는 이미 DDL과 정합하므로 수정 없이 재사용한다. (9) 대시보드의 hosted/joined 목록은 going_count 소싱 방식이 비대칭이다 — hosted는 이미 RLS로 열람 가능한 participants를 직접 집계하고, joined는 다른 참여자 행을 볼 권한이 없으므로 공개 함수인 get_event_preview를 재사용한다. (10) token→event_id 해석 로직은 009·011에서 중복되므로 008에서 공용 헬퍼로 만들어 공유한다."
     }
   ]
 }
