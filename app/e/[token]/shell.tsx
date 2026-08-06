@@ -129,7 +129,7 @@ export async function InviteShell({
 				<CardContent>
 					{canRespond ? (
 						<Suspense fallback={<SectionSkeleton className="h-56" />}>
-							<RsvpSection invitePath={invitePath} />
+							<RsvpSection token={token} invitePath={invitePath} />
 						</Suspense>
 					) : (
 						<p className="text-muted-foreground text-sm">
@@ -149,7 +149,7 @@ export async function InviteShell({
 					</CardHeader>
 					<CardContent>
 						<Suspense fallback={<SectionSkeleton className="h-16" />}>
-							<AttendeeSection />
+							<AttendeeSection token={token} />
 						</Suspense>
 					</CardContent>
 				</Card>

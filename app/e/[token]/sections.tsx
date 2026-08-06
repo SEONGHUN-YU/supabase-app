@@ -3,15 +3,11 @@ import { EmptyState } from '@/components/empty-state';
 import { RsvpBadge } from '@/components/rsvp-badge';
 import { RsvpForm, type RsvpAnswer } from '@/components/rsvp-form';
 import { SocialAuthButtons } from '@/components/social-auth-buttons';
-import {
-	makeParticipant,
-	makeSettlement,
-	makeSettlementShare,
-	participantDisplayName,
-	samplePublicParticipants,
-} from '@/lib/fixtures';
+import { makeSettlement, makeSettlementShare } from '@/lib/fixtures';
+import { resolveEventId } from '@/lib/event-lookup';
 import { createClient } from '@/lib/supabase/server';
 import { hasEnvVars } from '@/lib/utils';
+import type { RsvpStatus } from '@/types/database';
 
 /**
  * 초대 페이지의 **세션 의존 영역**.
@@ -26,18 +22,18 @@ import { hasEnvVars } from '@/lib/utils';
  */
 
 /**
- * 로그인 여부. 세 영역이 각자의 경계 안에서 따로 읽는다.
+ * 로그인한 사용자의 uid. 세 영역이 각자의 경계 안에서 따로 읽는다.
  *
  * `hasEnvVars` 가드는 `components/site-header.tsx`와 같은 이유다. 환경 변수가
  * 없으면 `createClient()`가 던지는데, 그 상태에서도 초대 페이지의 정적 셸은
  * 보여야 한다.
  */
-async function isSignedIn(): Promise<boolean> {
-	if (!hasEnvVars) return false;
+async function getUid(): Promise<string | null> {
+	if (!hasEnvVars) return null;
 
 	const supabase = await createClient();
 	const { data } = await supabase.auth.getClaims();
-	return Boolean(data?.claims);
+	return data?.claims?.sub ?? null;
 }
 
 /**
@@ -46,10 +42,16 @@ async function isSignedIn(): Promise<boolean> {
  * 마감·취소 판정은 세션과 무관하므로 호출부의 정적 셸이 담당한다.
  * 여기 도달했다는 것은 이미 "응답 가능한 모임"이라는 뜻이다.
  */
-export async function RsvpSection({ invitePath }: { invitePath: string }) {
-	const signedIn = await isSignedIn();
+export async function RsvpSection({
+	token,
+	invitePath,
+}: {
+	token: string;
+	invitePath: string;
+}) {
+	const uid = await getUid();
 
-	if (!signedIn) {
+	if (!uid) {
 		return (
 			<div className="flex flex-col gap-3">
 				<p className="text-sm">
@@ -62,30 +64,35 @@ export async function RsvpSection({ invitePath }: { invitePath: string }) {
 		);
 	}
 
-	// Phase 2에서는 기존 응답이 있는 상태를 렌더한다. `existing`이 null이면
-	// 첫 응답 모드로 열리며, 실제 조회는 Task 009에서 붙인다.
-	const mine = makeParticipant({
-		status: 'going',
-		guest_count: 1,
-		note: '조금 늦을 수도 있어요',
-	});
-	const existing: RsvpAnswer = {
-		status: mine.status,
-		guest_count: mine.guest_count,
-		note: mine.note,
-	};
+	const supabase = await createClient();
+	const event = await resolveEventId(supabase, token);
 
-	return <RsvpForm existing={existing} />;
+	// event가 null이면 아직 참여하지 않은 사용자다(events_select RLS가 막는다) —
+	// 첫 응답 모드로 연다. join_event RPC는 토큰만으로 동작하므로 이 경우에도
+	// 문제없이 저장된다.
+	let existing: RsvpAnswer | null = null;
+	if (event) {
+		const { data, error } = await supabase
+			.from('participants')
+			.select('status, guest_count, note')
+			.eq('event_id', event.id)
+			.eq('user_id', uid)
+			.maybeSingle();
+		if (error) throw error;
+		existing = data as RsvpAnswer | null;
+	}
+
+	return <RsvpForm token={token} existing={existing} />;
 }
 
 /**
  * 참석자 명단 (F004).
  * 주최자가 명단을 공개한 경우에만 호출부가 렌더한다 (R10).
  */
-export async function AttendeeSection() {
-	const signedIn = await isSignedIn();
+export async function AttendeeSection({ token }: { token: string }) {
+	const uid = await getUid();
 
-	if (!signedIn) {
+	if (!uid) {
 		return (
 			<p className="text-muted-foreground text-sm">
 				로그인하면 참석자 명단을 볼 수 있어요.
@@ -93,10 +100,32 @@ export async function AttendeeSection() {
 		);
 	}
 
-	// ParticipantPublic — note가 타입에 없다. 실수로 렌더하면 컴파일이 깨진다.
-	const attendees = samplePublicParticipants().filter(
-		participant => participant.status !== 'not_going',
-	);
+	const supabase = await createClient();
+	const event = await resolveEventId(supabase, token);
+
+	// 아직 참여하지 않은 사용자는 명단을 볼 참여자/호스트 자격이 없다.
+	if (!event) {
+		return (
+			<p className="text-muted-foreground text-sm">
+				참석 응답 후 확인할 수 있어요.
+			</p>
+		);
+	}
+
+	// get_event_participants가 note를 반환하지 않는다(R10). 반환 필드가
+	// display_name·status·guest_count로 고정이라 id가 없어 index를 key에 섞는다.
+	const { data, error } = await supabase.rpc('get_event_participants', {
+		p_event_id: event.id,
+	});
+	if (error) throw error;
+
+	const attendees = (
+		(data ?? []) as {
+			display_name: string;
+			status: RsvpStatus;
+			guest_count: number;
+		}[]
+	).filter(participant => participant.status !== 'not_going');
 
 	if (attendees.length === 0) {
 		return <EmptyState title="아직 응답한 사람이 없어요" />;
@@ -104,15 +133,13 @@ export async function AttendeeSection() {
 
 	return (
 		<ul className="flex flex-wrap gap-2">
-			{attendees.map(participant => (
+			{attendees.map((participant, index) => (
 				<li
-					key={participant.id}
+					key={`${participant.display_name}-${index}`}
 					className="bg-muted flex items-center gap-1.5 rounded-full py-1 pr-3 pl-1.5 text-sm"
 				>
 					<RsvpBadge status={participant.status} />
-					<span className="max-w-32 truncate">
-						{participantDisplayName(participant)}
-					</span>
+					<span className="max-w-32 truncate">{participant.display_name}</span>
 					{participant.guest_count > 0 && (
 						<span className="text-muted-foreground text-xs">
 							+{participant.guest_count}
@@ -131,9 +158,9 @@ export async function AttendeeSection() {
  * `components/host-controls.tsx`의 `PaymentCheck`가 담당한다.
  */
 export async function SettlementSection() {
-	const signedIn = await isSignedIn();
+	const uid = await getUid();
 
-	if (!signedIn) {
+	if (!uid) {
 		return (
 			<p className="text-muted-foreground text-sm">
 				로그인하면 본인 정산 내역을 볼 수 있어요.

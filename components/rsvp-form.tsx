@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { rsvpSchema } from '@/lib/schemas';
+import { createClient } from '@/lib/supabase/client';
 import type { RsvpStatus } from '@/types/database';
 
 /**
@@ -15,8 +16,9 @@ import type { RsvpStatus } from '@/types/database';
  * Server Action을 쓰지 않는다. 이 저장소는 클라이언트 컴포넌트에서 직접
  * 처리하는 방식이고 `components/login-form.tsx`가 그 선례다.
  *
- * Phase 2는 저장하지 않는다. `rsvpSchema` 검증을 통과하면 화면 상태만 바꿔
- * 응답 완료 카드로 전환하는 데까지가 이번 범위다 (Task 009에서 연동).
+ * 저장은 `join_event` RPC 한 번으로 끝난다. 최초 응답과 수정이 같은 경로를
+ * 타는 것(`on conflict do update`)은 RPC 안에 있으므로 여기서 분기하지 않는다.
+ * 마감·정원 초과 등의 검증도 RPC 안에서 처리되어 예외 메시지로 돌아온다.
  *
  * 본인의 한마디를 폼에 되돌려 보여주는 것은 R10 위반이 아니다. R10이 막는 것은
  * **다른 참여자의** 한마디 노출이고, 그쪽은 명단이 `ParticipantPublic`을 쓰는
@@ -40,7 +42,13 @@ const STATUS_OPTIONS: { value: RsvpStatus; label: string }[] = [
 /** 필드별 에러 메시지. Zod의 flatten 결과를 담는다. */
 type FieldErrors = Partial<Record<string, string[]>>;
 
-export function RsvpForm({ existing }: { existing: RsvpAnswer | null }) {
+export function RsvpForm({
+	token,
+	existing,
+}: {
+	token: string;
+	existing: RsvpAnswer | null;
+}) {
 	const [saved, setSaved] = useState<RsvpAnswer | null>(existing);
 	// 기존 응답이 있으면 완료 카드부터 보여준다 (PRD: 재방문 시 수정 모드).
 	const [editing, setEditing] = useState(existing === null);
@@ -53,8 +61,10 @@ export function RsvpForm({ existing }: { existing: RsvpAnswer | null }) {
 	);
 	const [note, setNote] = useState(existing?.note ?? '');
 	const [errors, setErrors] = useState<FieldErrors>({});
+	const [submitting, setSubmitting] = useState(false);
+	const [submitError, setSubmitError] = useState<string | null>(null);
 
-	const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 
 		const result = rsvpSchema.safeParse({
@@ -68,6 +78,24 @@ export function RsvpForm({ existing }: { existing: RsvpAnswer | null }) {
 		}
 
 		setErrors({});
+		setSubmitError(null);
+		setSubmitting(true);
+
+		const supabase = createClient();
+		const { error } = await supabase.rpc('join_event', {
+			p_token: token,
+			p_status: result.data.status,
+			p_guest_count: result.data.guest_count,
+			p_note: result.data.note ?? null,
+		});
+
+		setSubmitting(false);
+
+		if (error) {
+			setSubmitError(error.message);
+			return;
+		}
+
 		setSaved({
 			status: result.data.status,
 			guest_count: result.data.guest_count,
@@ -117,6 +145,8 @@ export function RsvpForm({ existing }: { existing: RsvpAnswer | null }) {
 		// 에러는 아예 표시되지 않는다. 속성은 모바일 숫자 키패드와 범위 안내
 		// 용도로 그대로 둔다.
 		<form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+			{submitError && <p className="text-destructive text-sm">{submitError}</p>}
+
 			<div className="flex flex-col gap-1.5">
 				<span className="text-sm font-medium">참석 여부</span>
 				{/* 터치 타겟 44px(h-11). 라디오 대신 버튼을 쓴 이유는 모바일에서
@@ -192,8 +222,12 @@ export function RsvpForm({ existing }: { existing: RsvpAnswer | null }) {
 			</div>
 
 			<div className="flex gap-2">
-				<Button type="submit" className="h-11 flex-1 sm:flex-none">
-					응답 저장
+				<Button
+					type="submit"
+					disabled={submitting}
+					className="h-11 flex-1 sm:flex-none"
+				>
+					{submitting ? '저장하는 중...' : '응답 저장'}
 				</Button>
 				{saved && (
 					<Button

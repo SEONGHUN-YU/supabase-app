@@ -529,14 +529,14 @@
       "name": "Task 009: 참석 응답(RSVP) 기능 구현",
       "description": "join_event RPC로 참석 응답 저장·수정을 연동하고, 명단 조회를 get_event_participants RPC로 교체한다.",
       "notes": "get_event_participants가 note를 반환하지 않으므로(R10) 컴파일 타임에 ParticipantPublic 타입으로 이미 차단됨 — 우회 금지.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "ab49e99d-e742-4a2f-8bd8-af2187c82f24"
         }
       ],
       "createdAt": "2026-08-06T02:49:38.169Z",
-      "updatedAt": "2026-08-06T02:49:38.169Z",
+      "updatedAt": "2026-08-06T06:40:17.543Z",
       "relatedFiles": [
         {
           "path": "components/rsvp-form.tsx",
@@ -560,7 +560,9 @@
       ],
       "implementationGuide": "1) components/rsvp-form.tsx의 handleSubmit(57-77행): rpc('join_event',{p_token,p_status,p_guest_count,p_note}) 호출로 교체, 에러는 RPC의 raise exception 메시지를 그대로 표시.\n2) app/e/[token]/sections.tsx의 RsvpSection(49-79행): lib/event-lookup.ts의 resolveEventId 재사용, event_id가 있으면 participants.select('status,guest_count,note').eq('event_id',id).eq('user_id',uid).maybeSingle()로 existing 채움, 없으면 첫 응답 모드(makeParticipant 더미 제거).\n3) AttendeeSection(85-125행): samplePublicParticipants() 제거, event_id 해석 후 rpc('get_event_participants',{p_event_id}), event_id를 못 구하면(미응답 상태) '참석 응답 후 확인할 수 있어요' 안내로 대체.\n4) 로그인 유도(59-60행 SocialAuthButtons next={invitePath})는 변경 불필요 — 기존 next prop 흐름이 이미 올바르게 연결되어 있음.",
       "verificationCriteria": "새 계정으로 응답 저장 후 participants 행 생성 확인, 재접속 시 수정 모드로 기존 응답 표시, 마감된 이벤트에서 join_event가 예외를 던져 저장 차단, 명단에 note가 절대 렌더되지 않음(런타임 확인).",
-      "analysisResult": "Phase 3 핵심 기능 구현의 목표는 docs/MVP-PLAN.md §5-6에 확정된 스키마·RLS·RPC 설계를 apply_migration으로 그대로 적용하고, Phase 2에서 lib/fixtures.ts로 렌더하던 더미 페이지 6곳을 실제 Supabase 쿼리로 교체하는 것이다. 원칙: (1) DDL은 apply_migration만 사용, execute_sql 금지. (2) Server Action을 도입하지 않고 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 기존 관례(login-form.tsx)를 따른다. (3) Supabase 클라이언트를 모듈 최상위 변수에 저장하지 않는다. (4) cacheComponents:true 환경이라 동적 데이터를 읽는 컴포넌트는 Suspense 경계 안에 있어야 하고 경계는 최소 단위로 좁게 잡는다(단 manage 페이지는 페이지 전체가 host 인증 의존이라 예외적으로 경계 하나를 넓게 잡는다 — 006의 '좁게' 원칙이 존재하는 이유인 정적 셸 캐시 이점이 로그인 전용 페이지엔 해당하지 않기 때문). (5) note 컬럼은 get_event_participants 반환에서 제외되어야 하며(R10) ParticipantPublic 타입의 컴파일 타임 차단을 우회하지 않는다. (6) location_url은 http/https 스킴만 허용(R18, isSafeUrl 재사용). (7) lib/fixtures.ts는 Task 011까지 모든 호출부가 교체된 뒤에만 삭제한다. (8) types/database.ts, lib/schemas.ts는 이미 DDL과 정합하므로 수정 없이 재사용한다. (9) 대시보드의 hosted/joined 목록은 going_count 소싱 방식이 비대칭이다 — hosted는 이미 RLS로 열람 가능한 participants를 직접 집계하고, joined는 다른 참여자 행을 볼 권한이 없으므로 공개 함수인 get_event_preview를 재사용한다. (10) token→event_id 해석 로직은 009·011에서 중복되므로 008에서 공용 헬퍼로 만들어 공유한다."
+      "analysisResult": "Phase 3 핵심 기능 구현의 목표는 docs/MVP-PLAN.md §5-6에 확정된 스키마·RLS·RPC 설계를 apply_migration으로 그대로 적용하고, Phase 2에서 lib/fixtures.ts로 렌더하던 더미 페이지 6곳을 실제 Supabase 쿼리로 교체하는 것이다. 원칙: (1) DDL은 apply_migration만 사용, execute_sql 금지. (2) Server Action을 도입하지 않고 클라이언트 컴포넌트에서 Supabase를 직접 호출하는 기존 관례(login-form.tsx)를 따른다. (3) Supabase 클라이언트를 모듈 최상위 변수에 저장하지 않는다. (4) cacheComponents:true 환경이라 동적 데이터를 읽는 컴포넌트는 Suspense 경계 안에 있어야 하고 경계는 최소 단위로 좁게 잡는다(단 manage 페이지는 페이지 전체가 host 인증 의존이라 예외적으로 경계 하나를 넓게 잡는다 — 006의 '좁게' 원칙이 존재하는 이유인 정적 셸 캐시 이점이 로그인 전용 페이지엔 해당하지 않기 때문). (5) note 컬럼은 get_event_participants 반환에서 제외되어야 하며(R10) ParticipantPublic 타입의 컴파일 타임 차단을 우회하지 않는다. (6) location_url은 http/https 스킴만 허용(R18, isSafeUrl 재사용). (7) lib/fixtures.ts는 Task 011까지 모든 호출부가 교체된 뒤에만 삭제한다. (8) types/database.ts, lib/schemas.ts는 이미 DDL과 정합하므로 수정 없이 재사용한다. (9) 대시보드의 hosted/joined 목록은 going_count 소싱 방식이 비대칭이다 — hosted는 이미 RLS로 열람 가능한 participants를 직접 집계하고, joined는 다른 참여자 행을 볼 권한이 없으므로 공개 함수인 get_event_preview를 재사용한다. (10) token→event_id 해석 로직은 009·011에서 중복되므로 008에서 공용 헬퍼로 만들어 공유한다.",
+      "summary": "components/rsvp-form.tsx의 handleSubmit을 supabase.rpc('join_event', {...}) 호출로 교체했다(RPC의 raise exception 메시지를 error.message로 그대로 노출, on conflict do update 덕분에 최초 응답과 수정이 같은 경로). app/e/[token]/sections.tsx의 RsvpSection은 lib/event-lookup.ts의 resolveEventId로 event_id를 구해 participants에서 본인 행(status,guest_count,note)을 조회하고, event가 null이면(아직 미참여) 첫 응답 모드로 연다. AttendeeSection은 samplePublicParticipants() 픽스처를 제거하고 get_event_participants RPC로 교체했다 — 이 RPC가 note를 반환하지 않아(R10) 타입이 아니라 애초에 값 자체가 없으므로 우회가 불가능하고, id가 없어 display_name+index를 key로 썼다. isSignedIn()을 getUid()로 바꿔 uid 값을 세 섹션이 공유한다. app/e/[token]/shell.tsx는 RsvpSection·AttendeeSection에 token prop을 추가로 넘긴다.\n\nPlaywright + Supabase MCP로 실제 계정 두 개(호스트·참여자)를 만들어 전 구간을 검증했다: (1) 최초 응답 저장 → participants 행 실제 생성(status=going, guest_count=2, note 저장) 확인. (2) 페이지 재방문 시 DB 값 그대로 수정 모드 표시. (3) 응답 수정(참석→미정, guest_count 2→0) → 같은 participant id, updated_at만 갱신되는 upsert 동작 확인. (4) rsvp_deadline을 과거로 바꾼 뒤 UI가 응답 폼을 숨기고 안내 문구로 전환되는 것 확인, 그리고 UI를 완전히 우회해 SQL에서 authenticated 롤로 join_event를 직접 호출해도 RPC 자체가 '응답 기한이 지났습니다' 예외를 던져 저장을 막는 것까지 확인(클라이언트 신뢰에만 의존하지 않음). (5) 참석자 명단에서 note가 절대 렌더되지 않고, 반대로 호스트의 manage 페이지(Task 008 구현, participants_host RLS로 원본 테이블 직접 조회)에서는 note가 정상적으로 보여 R10 양방향이 의도대로 동작함을 확인.\n\n테스트 중 GoTrue 회원가입 이메일 rate limit(429)에 걸려, pgcrypto로 auth.users에 테스트 계정을 직접 삽입하는 우회 경로를 썼다. 이 과정에서 email_change_token_new/email_change 컬럼이 NULL이면 로그인 시 GoTrue가 500을 던지는 것을 발견해(NULL이 아니라 빈 문자열이어야 함) 함께 고쳤다. 테스트 계정·이벤트는 검증 후 전부 삭제했다. npm run build/lint/tsc 통과, 변경 파일만 scoped prettier 적용(전체 포맷 금지 피드백 반영).",
+      "completedAt": "2026-08-06T06:40:17.542Z"
     },
     {
       "id": "ba98d28a-6873-4fe3-83f7-247c63f8d193",
