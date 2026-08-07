@@ -3,11 +3,10 @@ import { EmptyState } from '@/components/empty-state';
 import { RsvpBadge } from '@/components/rsvp-badge';
 import { RsvpForm, type RsvpAnswer } from '@/components/rsvp-form';
 import { SocialAuthButtons } from '@/components/social-auth-buttons';
-import { makeSettlement, makeSettlementShare } from '@/lib/fixtures';
 import { resolveEventId } from '@/lib/event-lookup';
 import { createClient } from '@/lib/supabase/server';
 import { hasEnvVars } from '@/lib/utils';
-import type { RsvpStatus } from '@/types/database';
+import type { RsvpStatus, Settlement } from '@/types/database';
 
 /**
  * 초대 페이지의 **세션 의존 영역**.
@@ -157,7 +156,7 @@ export async function AttendeeSection({ token }: { token: string }) {
  * 참여자는 **읽기만** 한다. 입금 확인 체크는 주최자 권한이며
  * `components/host-controls.tsx`의 `PaymentCheck`가 담당한다.
  */
-export async function SettlementSection() {
+export async function SettlementSection({ token }: { token: string }) {
 	const uid = await getUid();
 
 	if (!uid) {
@@ -168,8 +167,51 @@ export async function SettlementSection() {
 		);
 	}
 
-	const settlement = makeSettlement();
-	const share = makeSettlementShare();
+	const supabase = await createClient();
+	const event = await resolveEventId(supabase, token);
+	if (!event) {
+		return (
+			<p className="text-muted-foreground text-sm">
+				참석 응답 후 확인할 수 있어요.
+			</p>
+		);
+	}
+
+	const { data: myParticipant } = await supabase
+		.from('participants')
+		.select('id')
+		.eq('event_id', event.id)
+		.eq('user_id', uid)
+		.maybeSingle();
+
+	if (!myParticipant) {
+		return (
+			<p className="text-muted-foreground text-sm">
+				참석 응답 후 확인할 수 있어요.
+			</p>
+		);
+	}
+
+	// settlement_shares_self RLS(본인 참여자 행)와 settlements_participant_select
+	// RLS(본인이 참여 중인 이벤트) 양쪽을 통과해야 임베디드 조회가 성공한다.
+	const { data, error } = await supabase
+		.from('settlement_shares')
+		.select('id, amount, paid, settlements(*)')
+		.eq('participant_id', myParticipant.id)
+		.maybeSingle();
+	if (error) throw error;
+
+	if (!data) {
+		return <EmptyState title="아직 정산이 없어요" />;
+	}
+
+	const share = data as unknown as {
+		id: string;
+		amount: number;
+		paid: boolean;
+		settlements: Settlement;
+	};
+	const settlement = share.settlements;
 
 	return (
 		<div className="flex flex-col gap-2">

@@ -11,11 +11,12 @@ import {
 	StatusSelect,
 } from '@/components/host-controls';
 import { ParticipantManager } from '@/components/participant-manager';
+import { SettlementForm } from '@/components/settlement-form';
 import { StatusBanner } from '@/components/status-banner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatKST } from '@/lib/date';
-import { countGoing } from '@/lib/fixtures';
+import { countGoing } from '@/lib/participants';
 import {
 	buildAnnouncementShareText,
 	buildSettlementShareText,
@@ -27,6 +28,7 @@ import type {
 	Event,
 	Participant,
 	Settlement,
+	SettlementShare,
 } from '@/types/database';
 
 /**
@@ -90,6 +92,18 @@ async function ManageEventContent({
 	const announcements = (announcementsData ?? []) as Announcement[];
 	const settlement = settlementData as Settlement | null;
 
+	// settlement_shares는 settlement.id가 있어야 조회할 수 있어 위 Promise.all과
+	// 묶지 못한다. settlements_host RLS(is_settlement_host)로 호스트 전권 조회.
+	let settlementShares: SettlementShare[] = [];
+	if (settlement) {
+		// settlement_shares에는 created_at이 없다(DDL). 정렬 없이 그대로 쓴다.
+		const { data: sharesData } = await supabase
+			.from('settlement_shares')
+			.select('*')
+			.eq('settlement_id', settlement.id);
+		settlementShares = (sharesData ?? []) as SettlementShare[];
+	}
+
 	// profiles RLS가 본인 행만 허용해 participants ⨝ profiles를 직접 못 하므로
 	// get_host_participant_names(호스트 전용 SECURITY DEFINER)로 이름만 따로 받는다.
 	const hostParticipantNames = (nameRows ?? []) as {
@@ -114,12 +128,20 @@ async function ManageEventContent({
 		participant,
 		displayName: displayName(participant),
 	}));
+	const goingParticipantIds = participants
+		.filter(participant => participant.status === 'going')
+		.map(participant => participant.id);
 
-	// 정산 분담금은 참석자 수(동반 포함)로 나눈다. 나머지는 주최자 귀속.
-	const shareAmount =
-		settlement && goingCount > 0
-			? Math.floor(settlement.total_amount / goingCount)
-			: 0;
+	// share.amount는 정산 생성 시점에 계산돼 각 행에 고정 저장된다(이후 참석자가
+	// 늘어나도 재분배하지 않는다). 요약 줄의 1인 금액도 그 값을 그대로 쓴다.
+	const participantById = Object.fromEntries(
+		participants.map(participant => [participant.id, participant]),
+	);
+	const unpaidShares = settlementShares.filter(share => !share.paid);
+	const unpaidAmount = unpaidShares.reduce(
+		(sum, share) => sum + share.amount,
+		0,
+	);
 
 	const invitePath = `/e/${event.public_token}`;
 	const latestAnnouncement = announcements[0] ?? null;
@@ -283,8 +305,15 @@ async function ManageEventContent({
 								<p className="font-medium">{settlement.title}</p>
 								<p className="text-muted-foreground text-sm">
 									총 {settlement.total_amount.toLocaleString('ko-KR')}원 · 참석{' '}
-									{goingCount}명 · 1인 {shareAmount.toLocaleString('ko-KR')}원
+									{settlementShares.length}명 · 1인{' '}
+									{(settlementShares[0]?.amount ?? 0).toLocaleString('ko-KR')}원
 								</p>
+								{unpaidShares.length > 0 && (
+									<p className="text-sm">
+										미입금 {unpaidShares.length}명 ·{' '}
+										{unpaidAmount.toLocaleString('ko-KR')}원
+									</p>
+								)}
 							</div>
 
 							{settlement.account_info && (
@@ -298,22 +327,31 @@ async function ManageEventContent({
 							)}
 
 							<ul className="divide-y border-t pt-2">
-								{participants
-									.filter(participant => participant.status === 'going')
-									.map(participant => (
-										<li key={participant.id}>
+								{settlementShares.map(share => {
+									const participant = participantById[share.participant_id];
+									if (!participant) return null;
+									return (
+										<li key={share.id}>
 											<PaymentCheck
-												id={`paid-${participant.id}`}
+												id={`paid-${share.id}`}
+												shareId={share.id}
 												label={displayName(participant)}
-												amount={shareAmount}
-												defaultPaid={false}
+												amount={share.amount}
+												defaultPaid={share.paid}
 											/>
 										</li>
-									))}
+									);
+								})}
 							</ul>
 						</>
 					) : (
-						<EmptyState title="아직 정산이 없어요" />
+						<>
+							<EmptyState title="아직 정산이 없어요" />
+							<SettlementForm
+								eventId={id}
+								goingParticipantIds={goingParticipantIds}
+							/>
+						</>
 					)}
 				</CardContent>
 			</Card>

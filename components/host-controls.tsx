@@ -184,16 +184,41 @@ export function StatusSelect({
 
 export function PaymentCheck({
 	id,
+	shareId,
 	label,
 	amount,
 	defaultPaid,
 }: {
 	id: string;
+	/** `settlement_shares.id`. 이 행 하나만 갱신한다. */
+	shareId: string;
 	label: string;
 	amount: number;
 	defaultPaid: boolean;
 }) {
+	const router = useRouter();
 	const [paid, setPaid] = useState(defaultPaid);
+
+	const handleChange = async (checked: boolean) => {
+		setPaid(checked);
+
+		const supabase = createClient();
+		const { error } = await supabase
+			.from('settlement_shares')
+			.update({
+				paid: checked,
+				paid_at: checked ? new Date().toISOString() : null,
+			})
+			.eq('id', shareId);
+
+		if (error) {
+			setPaid(!checked);
+			toast.error(error.message);
+			return;
+		}
+
+		router.refresh();
+	};
 
 	return (
 		<div className="flex items-center justify-between gap-3 py-1.5">
@@ -201,7 +226,7 @@ export function PaymentCheck({
 				<Checkbox
 					id={id}
 					checked={paid}
-					onCheckedChange={checked => setPaid(checked === true)}
+					onCheckedChange={checked => handleChange(checked === true)}
 				/>
 				<span className="text-sm font-normal">{label}</span>
 			</Label>

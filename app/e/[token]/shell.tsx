@@ -161,7 +161,7 @@ export async function InviteShell({
 				</CardHeader>
 				<CardContent>
 					<Suspense fallback={<SectionSkeleton className="h-24" />}>
-						<SettlementSection />
+						<SettlementSection token={token} />
 					</Suspense>
 				</CardContent>
 			</Card>
